@@ -1,0 +1,1079 @@
+---
+// The street view through the window: the University of Wrocław's main
+// building beside the Odra, drawn in one-point perspective.
+// All repeated shapes (windows, trees, lamps, road markings) are computed
+// here at build time, so the browser receives plain SVG.
+
+const VP = { x: 250, y: 170 }; // vanishing point, on the horizon
+const G = 430; // distance from the horizon to the bottom edge, at depth 1
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+const pts = (list: [number, number][]) => list.map(([x, y]) => `${r1(x)},${r1(y)}`).join(' ');
+
+// Repeatable pseudo-random numbers, so every build looks the same.
+let seed = 11;
+const rand = () => {
+  seed = (seed * 16807) % 2147483647;
+  return (seed - 1) / 2147483646;
+};
+
+// Lines on the ground all meet at VP. A line is named by its inverse slope:
+// at screen depth dy below the horizon it sits at x = VP.x + dy * inv.
+const band = (i0: number, i1: number, y0 = 236, y1 = 620) => {
+  const d0 = y0 - VP.y;
+  const d1 = y1 - VP.y;
+  return pts([
+    [VP.x + d0 * i0, y0],
+    [VP.x + d0 * i1, y0],
+    [VP.x + d1 * i1, y1],
+    [VP.x + d1 * i0, y1],
+  ]);
+};
+// A short strip on the ground between two depths (z = 1 is the bottom edge).
+const strip = (inv: number, half: number, zA: number, zB: number) => {
+  const a = G / zA;
+  const b = G / zB;
+  return pts([
+    [VP.x + a * (inv - half), VP.y + a],
+    [VP.x + a * (inv + half), VP.y + a],
+    [VP.x + b * (inv + half), VP.y + b],
+    [VP.x + b * (inv - half), VP.y + b],
+  ]);
+};
+const ground = (inv: number, z: number) => {
+  const dy = G / z;
+  return { x: VP.x + dy * inv, y: VP.y + dy, dy };
+};
+
+// A facade along the street, from screen x `far` to `near`.
+// `base` and `top` are the slopes of its ground line and roof line.
+type Facade = { far: number; near: number; base: number; top: number };
+const xAt = (f: Facade, t: number) => {
+  const a = 1 / (f.far - VP.x);
+  const b = 1 / (f.near - VP.x);
+  return VP.x + 1 / (a + (b - a) * t); // evenly spaced in the real street
+};
+const yAt = (f: Facade, x: number, v: number) => {
+  const yb = VP.y + f.base * (x - VP.x);
+  const yt = VP.y + f.top * (x - VP.x);
+  return yb + (yt - yb) * v;
+};
+const quad = (f: Facade, t0: number, t1: number, v0: number, v1: number) => {
+  const x0 = xAt(f, t0);
+  const x1 = xAt(f, t1);
+  return pts([
+    [x0, yAt(f, x0, v0)],
+    [x1, yAt(f, x1, v0)],
+    [x1, yAt(f, x1, v1)],
+    [x0, yAt(f, x0, v1)],
+  ]);
+};
+const arch = (f: Facade, t0: number, t1: number, v0: number, v1: number, vTop: number) => {
+  const x0 = xAt(f, t0);
+  const x1 = xAt(f, t1);
+  const xm = xAt(f, (t0 + t1) / 2);
+  return pts([
+    [x0, yAt(f, x0, v0)],
+    [x1, yAt(f, x1, v0)],
+    [x1, yAt(f, x1, v1)],
+    [xm, yAt(f, xm, vTop)],
+    [x0, yAt(f, x0, v1)],
+  ]);
+};
+
+type Win = { p: string; cls: string };
+const grid = (f: Facade, bays: number, rows: [number, number][], frac: number) => {
+  const out: Win[] = [];
+  for (let i = 0; i < bays; i++) {
+    const c = (i + 0.5) / bays;
+    const h = frac / bays / 2;
+    for (const [v0, v1] of rows) {
+      const r = rand();
+      out.push({ p: quad(f, c - h, c + h, v0, v1), cls: r < 0.16 ? 'w gl' : r < 0.52 ? 'w lit' : 'w' });
+    }
+  }
+  return out;
+};
+const frames = (f: Facade, bays: number, rows: [number, number][], frac: number, pad: number) => {
+  const out: string[] = [];
+  for (let i = 0; i < bays; i++) {
+    const c = (i + 0.5) / bays;
+    const h = frac / bays / 2;
+    for (const [v0, v1] of rows) out.push(quad(f, c - h, c + h, v0 - pad, v1 + pad));
+  }
+  return out;
+};
+
+// --- University main building (A) ---
+const A: Facade = { far: 360, near: 505, base: 0.7, top: 0.13 };
+const aBays = 22;
+const aRows: [number, number][] = [
+  [0.07, 0.2],
+  [0.32, 0.5],
+  [0.58, 0.73],
+  [0.8, 0.9],
+];
+const aWindows = grid(A, aBays, aRows, 0.46);
+const aPilasters = Array.from({ length: aBays / 2 + 1 }, (_, k) => quad(A, (2 * k) / aBays - 0.007, (2 * k) / aBays + 0.007, 0.26, 0.94));
+const aPediments = Array.from({ length: aBays }, (_, i) => {
+  const c = (i + 0.5) / aBays;
+  const h = 0.3 / aBays;
+  return quad(A, c - h, c + h, 0.515, 0.54);
+});
+const aDormers = Array.from({ length: 10 }, (_, i) => {
+  const x0 = 368 + i * 11.5;
+  const w = 2.2 + i * 0.25;
+  const yC = VP.y + 0.13 * (x0 - VP.x);
+  const yR = VP.y + 0.035 * (x0 - VP.x);
+  const y0 = yC - (yC - yR) * 0.3;
+  const y1 = yC - (yC - yR) * 0.75;
+  return pts([
+    [x0, y0],
+    [x0 + w, y0 + 0.25],
+    [x0 + w, y1 + 0.25],
+    [x0, y1],
+  ]);
+});
+
+// --- Tenement (B) ---
+const B: Facade = { far: 505, near: 612, base: 0.7, top: 0.115 };
+const bRows: [number, number][] = [
+  [0.04, 0.19],
+  [0.29, 0.41],
+  [0.49, 0.61],
+  [0.69, 0.8],
+  [0.85, 0.9],
+];
+const bFrames = frames(B, 7, bRows, 0.58, 0.014);
+const bWindows = grid(B, 7, bRows, 0.48);
+const bCourses = [0.245, 0.455, 0.655, 0.835].map((v) => quad(B, 0, 1, v, v + 0.014));
+
+// --- Red building (C) ---
+const C: Facade = { far: 612, near: 905, base: 0.7, top: 0.1657 };
+const cRows: [number, number][] = [
+  [0.27, 0.4],
+  [0.46, 0.59],
+  [0.64, 0.75],
+  [0.84, 0.93],
+];
+const cFrames = frames(C, 8, cRows, 0.58, 0.012);
+const cWindows = grid(C, 8, cRows, 0.46);
+const cArches = Array.from({ length: 8 }, (_, i) => {
+  const c = (i + 0.5) / 8;
+  return { stone: arch(C, c - 0.036, c + 0.036, 0.02, 0.15, 0.19), hole: arch(C, c - 0.027, c + 0.027, 0.02, 0.14, 0.172) };
+});
+
+// --- Background roofs behind B and C ---
+const backs = [
+  { x0: 498, x1: 556, top: 182, fill: 'bg1', pitch: 0 },
+  { x0: 552, x1: 612, top: 176, fill: 'bg2', pitch: 9 },
+  { x0: 608, x1: 658, top: 196, fill: 'bg3', pitch: 0 },
+  { x0: 654, x1: 702, top: 203, fill: 'bg1', pitch: 10 },
+  { x0: 740, x1: 790, top: 214, fill: 'bg3', pitch: 0 },
+  { x0: 786, x1: 840, top: 222, fill: 'bg2', pitch: 11 },
+];
+const backWindows: Win[] = [];
+for (const b of backs) {
+  for (let y = b.top + 5; y < b.top + 46; y += 7) {
+    for (let x = b.x0 + 4; x < b.x1 - 4; x += 7) {
+      const r = rand();
+      backWindows.push({ p: pts([[x, y], [x + 2.6, y], [x + 2.6, y + 3.4], [x, y + 3.4]]), cls: r < 0.45 ? 'w lit' : 'w' });
+    }
+  }
+}
+
+// --- Far skyline across the river ---
+const skyline = [
+  [0, 24, 42],
+  [22, 16, 30],
+  [40, 30, 22],
+  [72, 13, 34],
+  [90, 26, 19],
+  [118, 20, 27],
+  [141, 34, 15],
+  [178, 18, 23],
+  [198, 34, 13],
+  [234, 30, 10],
+].map(([x, w, h]) => ({ x, w, h }));
+const skyDots: string[] = [];
+for (const s of skyline) {
+  for (let y = 214 - s.h + 4; y < 210; y += 5) {
+    for (let x = s.x + 3; x < s.x + s.w - 2; x += 5) if (rand() < 0.4) skyDots.push(`M${x} ${y}h1.6v1.8h-1.6z`);
+  }
+}
+
+// --- Trees along the river, far to near ---
+const treeZ = [8.6, 7.1, 5.9, 4.9, 4.1, 3.4, 2.8, 2.3, 1.9, 1.55, 1.25, 0.98];
+const blobs = [
+  [0, 0, 0.62],
+  [-0.46, 0.14, 0.48],
+  [0.47, 0.12, 0.5],
+  [-0.2, -0.36, 0.46],
+  [0.26, -0.33, 0.47],
+  [0.02, 0.34, 0.5],
+  [-0.62, -0.06, 0.34],
+  [0.63, -0.04, 0.36],
+];
+const trees = treeZ.map((z) => {
+  const g = ground(0.2564, z);
+  const R = 0.2 * g.dy;
+  const trunk = 0.16 * g.dy;
+  const cx = g.x;
+  const cy = g.y - trunk - 0.55 * R;
+  const circles = blobs.map(([dx, dy, r]) => ({
+    x: r1(cx + (dx + (rand() - 0.5) * 0.12) * R),
+    y: r1(cy + (dy + (rand() - 0.5) * 0.12) * R),
+    r: r1(r * R * (0.92 + rand() * 0.16)),
+  }));
+  return {
+    circles,
+    trunk: pts([
+      [cx - 0.009 * g.dy, g.y],
+      [cx + 0.009 * g.dy, g.y],
+      [cx + 0.006 * g.dy, cy],
+      [cx - 0.006 * g.dy, cy],
+    ]),
+    shadow: strip(0.31, 0.055, z * 0.6, z),
+    rim: r1(R * 0.05),
+    origin: `${r1(cx)}px ${r1(g.y)}px`,
+    delay: r1(-rand() * 8),
+  };
+});
+
+// --- Street lamps on the pavement ---
+const lamps = [1.08, 1.6, 2.35, 3.45, 5.1].map((z) => {
+  const g = ground(0.952, z);
+  const h = 0.27 * g.dy;
+  const w = Math.max(0.7, 0.007 * g.dy);
+  const top = g.y - h;
+  const hx = g.x - 0.04 * g.dy;
+  return {
+    pole: pts([
+      [g.x - w, g.y],
+      [g.x + w, g.y],
+      [g.x + w * 0.6, top],
+      [g.x - w * 0.6, top],
+    ]),
+    arm: `M${r1(g.x)} ${r1(top)} Q${r1(g.x - 0.01 * g.dy)} ${r1(top - 0.02 * g.dy)} ${r1(hx)} ${r1(top + 0.004 * g.dy)}`,
+    width: r1(w * 1.1),
+    head: { x: r1(hx), y: r1(top + 0.008 * g.dy), rx: r1(0.012 * g.dy), ry: r1(0.005 * g.dy) },
+    glow: { x: r1(hx), y: r1(top + 0.012 * g.dy), r: r1(0.07 * g.dy) },
+    pool: { x: r1(hx), y: r1(g.y + 0.004 * g.dy), rx: r1(0.13 * g.dy), ry: r1(0.035 * g.dy) },
+  };
+});
+
+// --- Road markings ---
+const dashes: string[] = [];
+for (const inv of [0.488, 0.68]) {
+  for (let z = 0.9; z < 7; z += 0.62) dashes.push(strip(inv, 0.0035, z, z + 0.3));
+}
+const zebra = Array.from({ length: 9 }, (_, k) => {
+  const iL = 0.2907;
+  const iR = 0.907;
+  const a = iL + ((iR - iL) * (k + 0.22)) / 9;
+  const b = iL + ((iR - iL) * (k + 0.74)) / 9;
+  const y0 = VP.y + G / 1.45;
+  const y1 = VP.y + G / 1.3;
+  const d0 = y0 - VP.y;
+  const d1 = y1 - VP.y;
+  return pts([
+    [VP.x + d0 * a, y0],
+    [VP.x + d0 * b, y0],
+    [VP.x + d1 * b, y1],
+    [VP.x + d1 * a, y1],
+  ]);
+});
+
+// --- Sky details ---
+const stars = Array.from({ length: 44 }, () => ({
+  x: r1(rand() * 840),
+  y: r1(rand() * 150),
+  r: r1(0.4 + rand() * 0.8),
+  d: r1(rand() * 4),
+}));
+const glints = Array.from({ length: 22 }, () => {
+  const y = 275 + rand() * 320;
+  const spread = 8 + (y - 270) * 0.1;
+  const x = 230 + (rand() - 0.5) * 2 * spread;
+  return { x: r1(x), y: r1(y), w: r1(4 + rand() * 10), d: r1(rand() * 3) };
+});
+const ripples = Array.from({ length: 16 }, () => ({
+  x: r1(10 + rand() * 230),
+  y: r1(280 + rand() * 310),
+  w: r1(10 + rand() * 30),
+  d: r1(-rand() * 9),
+}));
+const farTrees = Array.from({ length: 26 }, (_, i) => ({
+  x: r1(i * 14.5 + rand() * 6),
+  y: r1(226 + rand() * 12 - (i > 17 ? 4 : 0)),
+  r: r1(10 + rand() * 10),
+}));
+---
+
+<svg
+  class="scene"
+  data-scene
+  viewBox="0 0 840 600"
+  preserveAspectRatio="xMidYMid slice"
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: var(--sky1)"></stop>
+      <stop offset="0.55" style="stop-color: var(--sky2)"></stop>
+      <stop offset="1" style="stop-color: var(--sky3)"></stop>
+    </linearGradient>
+    <radialGradient id="sun-glow">
+      <stop offset="0" stop-color="#fff6dc" stop-opacity="0.95"></stop>
+      <stop offset="0.25" stop-color="#fde3b4" stop-opacity="0.6"></stop>
+      <stop offset="1" stop-color="#f6d2a2" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="moon-glow">
+      <stop offset="0" stop-color="#e9e4d4" stop-opacity="0.35"></stop>
+      <stop offset="1" stop-color="#e9e4d4" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="lamp-glow">
+      <stop offset="0" stop-color="#ffe3a6" stop-opacity="0.95"></stop>
+      <stop offset="0.35" stop-color="#ffc96b" stop-opacity="0.35"></stop>
+      <stop offset="1" stop-color="#ffb84d" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: var(--water1)"></stop>
+      <stop offset="1" style="stop-color: var(--water2)"></stop>
+    </linearGradient>
+    <linearGradient id="veil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: var(--sky3)" stop-opacity="0"></stop>
+      <stop offset="0.6" style="stop-color: var(--sky3)" stop-opacity="0.55"></stop>
+      <stop offset="1" style="stop-color: var(--sky3)" stop-opacity="0"></stop>
+    </linearGradient>
+    <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="0" y1="-20" x2="0" y2="-62">
+      <stop offset="0" stop-color="#fff2c2" stop-opacity="0.75"></stop>
+      <stop offset="1" stop-color="#fff2c2" stop-opacity="0"></stop>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0.6" stop-color="#000" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#000" stop-opacity="0.22"></stop>
+    </radialGradient>
+    <clipPath id="ground-clip">
+      <rect x="0" y="236" width="840" height="364"></rect>
+    </clipPath>
+
+    <!-- Templates the script copies for each car and each walker. -->
+    <g id="tpl-car" class="car">
+      <path class="beam" d="M-8 -20 L-17 -62 L17 -62 L8 -20 Z"></path>
+      <rect class="c-shadow" x="-9" y="-17" width="22" height="41" rx="7"></rect>
+      <rect class="c-body" x="-10" y="-20" width="20" height="40" rx="6.5"></rect>
+      <path class="c-glass" d="M-8 -9 L8 -9 L7 -3.5 L-7 -3.5 Z M-7 8.5 L7 8.5 L8 13 L-8 13 Z"></path>
+      <rect class="c-body" x="-7.5" y="-3.5" width="15" height="12" rx="2.5"></rect>
+      <rect class="c-shine" x="-7.5" y="-3.5" width="15" height="12" rx="2.5"></rect>
+      <rect class="c-head" x="-8" y="-20" width="4" height="2" rx="1"></rect>
+      <rect class="c-head" x="4" y="-20" width="4" height="2" rx="1"></rect>
+      <rect class="c-tail" x="-8.5" y="18.3" width="4" height="1.8" rx="0.8"></rect>
+      <rect class="c-tail" x="4.5" y="18.3" width="4" height="1.8" rx="0.8"></rect>
+    </g>
+    <g id="tpl-walker" class="walker">
+      <ellipse class="p-shadow" cx="0.8" cy="0.3" rx="3.4" ry="1.1"></ellipse>
+      <line class="leg leg-a" x1="-0.9" y1="-7.5" x2="-0.9" y2="0"></line>
+      <line class="leg leg-b" x1="0.9" y1="-7.5" x2="0.9" y2="0"></line>
+      <rect class="torso" x="-2.7" y="-15" width="5.4" height="8.6" rx="2.2"></rect>
+      <circle class="head" cx="0" cy="-17.3" r="2.35"></circle>
+      <path class="hair" d="M-2.35 -17.5 A2.35 2.35 0 0 1 2.35 -17.5 Z"></path>
+    </g>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="840" height="600" fill="url(#sky)"></rect>
+  <g class="stars">
+    {stars.map((s) => <circle cx={s.x} cy={s.y} r={s.r} style={`animation-delay:${s.d}s`} />)}
+  </g>
+  <g class="moon">
+    <circle cx="120" cy="64" r="46" fill="url(#moon-glow)"></circle>
+    <circle cx="120" cy="64" r="13" fill="#f3ebd5"></circle>
+    <circle cx="116" cy="60" r="3" fill="#ddd3ba"></circle>
+    <circle cx="125" cy="68" r="2.2" fill="#ddd3ba"></circle>
+  </g>
+  <g class="sun">
+    <circle cx="230" cy="140" r="150" fill="url(#sun-glow)"></circle>
+    <circle cx="230" cy="140" r="15" fill="#fff4d6"></circle>
+  </g>
+  <g class="clouds">
+    <ellipse cx="110" cy="70" rx="95" ry="8"></ellipse>
+    <ellipse cx="170" cy="82" rx="60" ry="5"></ellipse>
+    <ellipse cx="560" cy="44" rx="125" ry="8"></ellipse>
+    <ellipse cx="690" cy="96" rx="80" ry="6"></ellipse>
+    <ellipse cx="380" cy="104" rx="60" ry="4.5"></ellipse>
+  </g>
+
+  <!-- Far city across the river -->
+  <g class="haze">
+    {skyline.map((s) => <rect x={s.x} y={214 - s.h} width={s.w} height={s.h + 20} />)}
+    <rect x="124" y="160" width="5" height="54"></rect>
+    <path d="M123 161 L126.5 146 L130 161 Z"></path>
+  </g>
+  <path class="haze-win" d={skyDots.join('')}></path>
+
+  <!-- Roofs and church towers behind the street -->
+  <g class="backs">
+    <rect class="brick" x="704" y="168" width="12" height="70"></rect>
+    <path class="spire" d="M702 169 L710 126 L718 169 Z"></path>
+    <rect class="brick" x="726" y="178" width="9" height="60"></rect>
+    <path class="spire" d="M724.5 179 L730.5 146 L736.5 179 Z"></path>
+    <path class="bg-roof" d="M715 196 L726 188 L726 210 L715 210 Z"></path>
+    {
+      backs.map((b) => (
+        <g>
+          <rect class={b.fill} x={b.x0} y={b.top} width={b.x1 - b.x0} height="90" />
+          {b.pitch > 0 && <path class="bg-roof" d={`M${b.x0} ${b.top} L${(b.x0 + b.x1) / 2} ${b.top - b.pitch} L${b.x1} ${b.top} Z`} />}
+        </g>
+      ))
+    }
+    {backWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+  </g>
+
+  <!-- Trees on the far bank -->
+  <g class="far-trees">
+    <rect x="0" y="230" width="372" height="30"></rect>
+    {farTrees.map((t) => <circle cx={t.x} cy={t.y} r={t.r} />)}
+  </g>
+  <rect x="0" y="150" width="840" height="120" fill="url(#veil)"></rect>
+
+  <!-- The Odra -->
+  <polygon points="0,257 259,257 295,620 0,620" fill="url(#water)"></polygon>
+  <path class="reflect-dark" d="M0 268 C 30 280, 36 330, 22 372 C 14 392, 0 396, 0 396 Z"></path>
+  <polygon class="bank-reflect" points="246,259 259,259 295,620 205,620"></polygon>
+  <polygon class="sun-glint" points="222,272 238,272 268,600 192,600"></polygon>
+  <g class="sun-sparks">
+    {glints.map((g) => <rect x={g.x} y={g.y} width={g.w} height="1.2" rx="0.6" style={`animation-delay:${g.d}s`} />)}
+  </g>
+  <polygon class="moon-glint" points="114,272 126,272 150,600 90,600"></polygon>
+  <g class="ripples">
+    {ripples.map((r) => <rect x={r.x} y={r.y} width={r.w} height="1" rx="0.5" style={`animation-delay:${r.d}s`} />)}
+  </g>
+
+  <!-- University Bridge and its reflection -->
+  <g class="bridge-reflect" transform="translate(0 532) scale(1 -1)">
+    <path d="M-5 251 L258 251 L258 266 L206 266 Q170 253 136 266 L130 266 Q98 253 66 266 L60 266 Q28 253 -5 262 Z"></path>
+  </g>
+  <g class="bridge">
+    <path class="stone" d="M-5 251 L258 251 L258 266 L206 266 Q170 253 136 266 L130 266 Q98 253 66 266 L60 266 Q28 253 -5 262 Z"></path>
+    <rect class="stone-dark" x="-5" y="256" width="263" height="1.4"></rect>
+    <path class="rail-line" d="M-5 247.5 H258 M8 247.5 V251 M30 247.5 V251 M52 247.5 V251 M74 247.5 V251 M96 247.5 V251 M118 247.5 V251 M140 247.5 V251 M162 247.5 V251 M184 247.5 V251 M206 247.5 V251 M228 247.5 V251 M250 247.5 V251"></path>
+    {
+      [20, 90, 160, 230].map((x) => (
+        <g>
+          <path class="lamp-post" d={`M${x} 251 V239`} />
+          <circle class="lamp-glow" cx={x} cy="239" r="9" fill="url(#lamp-glow)" />
+          <rect class="lamp-streak" x={x - 1.2} y="268" width="2.4" height="34" rx="1.2" />
+        </g>
+      ))
+    }
+  </g>
+
+  <!-- Ground: promenade, grass, road and pavement -->
+  <g clip-path="url(#ground-clip)">
+    <polygon class="stone-dark" points={band(0.1, 0.1163, 257)}></polygon>
+    <polygon class="path" points={band(0.1163, 0.165)}></polygon>
+    <polygon class="grass" points={band(0.165, 0.2907)}></polygon>
+    <polygon class="road" points={band(0.2907, 0.907)}></polygon>
+    {trees.map((t) => <polygon class="cast" points={t.shadow} />)}
+    <polygon class="rail" points={band(0.5605, 0.5635)}></polygon>
+    <polygon class="rail" points={band(0.5865, 0.5895)}></polygon>
+    {dashes.map((d) => <polygon class="mark" points={d} />)}
+    {zebra.map((z) => <polygon class="mark zebra" points={z} />)}
+    <polygon class="curb" points={band(0.907, 0.925)}></polygon>
+    <polygon class="walk" points={band(0.925, 1.6)}></polygon>
+  </g>
+
+  <!-- University main building -->
+  <g class="uni">
+    <polygon class="roof" points="358,184 362,173 488,177 595,211 505,203"></polygon>
+    {aDormers.map((d) => <polygon class="dormer" points={d} />)}
+    <polygon class="a-wall" points={quad(A, 0, 1, 0, 1)}></polygon>
+    <polygon class="a-low" points={quad(A, 0, 1, 0, 0.26)}></polygon>
+    {aPilasters.map((p) => <polygon class="a-light" points={p} />)}
+    <polygon class="a-trim" points={quad(A, 0, 1, 0.94, 1)}></polygon>
+    <polygon class="a-trim" points={quad(A, 0, 1, 0.255, 0.27)}></polygon>
+    {aWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+    {aPediments.map((p) => <polygon class="a-trim" points={p} />)}
+    <polygon class="a-light" points="414,191.3 414,178 462,180 462,197.6"></polygon>
+    <path class="a-trim" d="M414 178 L438 171 L462 180 Z"></path>
+    <path class="statue" d="M415 178 v-5 h1.6 v5 Z M461 180 v-5 h1.6 v5 Z M437 171 v-5.5 h1.8 v5.5 Z"></path>
+
+    <!-- Mathematical Tower -->
+    <polygon class="a-wall" points="427,150 442,150 442,182 427,180"></polygon>
+    <polygon class="a-low" points="442,150 454,151 454,183 442,182"></polygon>
+    <circle class="clock" cx="434.5" cy="162" r="3.6"></circle>
+    <rect class="w lit" x="447" y="160" width="3" height="7"></rect>
+    <rect class="a-trim" x="425" y="147" width="31" height="3.5"></rect>
+    <path class="statue" d="M425.5 147 v-5 h1.5 v5 Z M432 147 v-5.5 h1.5 v5.5 Z M447.5 147 v-5.5 h1.5 v5.5 Z M454 147 v-5 h1.5 v5 Z"></path>
+    <polygon class="a-wall" points="430,147 441,147 441,131 430,131"></polygon>
+    <polygon class="a-low" points="441,147 451,147 451,131 441,131"></polygon>
+    <path class="w" d="M432.4 145 v-8 a1.6 1.6 0 0 1 3.2 0 v8 Z M436.8 145 v-8 a1.6 1.6 0 0 1 3.2 0 v8 Z M443.4 145 v-8 a1.5 1.5 0 0 1 3 0 v8 Z M447 145 v-8 a1.4 1.4 0 0 1 2.8 0 v8 Z"></path>
+    <path class="dome" d="M428.5 131 C 428.5 120, 434 112, 440.5 107.5 C 447 112, 452.5 120, 452.5 131 Z"></path>
+    <path class="dome-shine" d="M431 129 C 431 121, 435 115, 439 111 C 436 117, 434.5 123, 434.5 129 Z"></path>
+    <rect class="a-wall" x="437" y="99" width="7" height="9"></rect>
+    <rect class="w" x="439.2" y="101" width="2.6" height="5"></rect>
+    <path class="dome" d="M436 99.5 Q440.5 89.5 445 99.5 Z"></path>
+    <path class="gold-line" d="M440.5 91 V75 M438 79 H443"></path>
+    <circle class="gold" cx="440.5" cy="86" r="1.5"></circle>
+  </g>
+
+  <!-- Tenement -->
+  <g class="tenement">
+    <polygon class="roof2" points="505,199.3 507,192 612,203 612,211.6"></polygon>
+    <rect class="b-side" x="539" y="187" width="4" height="8"></rect>
+    <rect class="b-side" x="583" y="193" width="4.4" height="8.5"></rect>
+    <polygon class="b-side" points="612,211.6 664,213 664,242 612,242"></polygon>
+    <polygon class="b-wall" points={quad(B, 0, 1, 0, 1)}></polygon>
+    <polygon class="b-low" points={quad(B, 0, 1, 0, 0.22)}></polygon>
+    {bCourses.map((c) => <polygon class="b-trim" points={c} />)}
+    <polygon class="b-trim" points={quad(B, 0, 1, 0.93, 1)}></polygon>
+    {bFrames.map((f) => <polygon class="b-trim" points={f} />)}
+    {bWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+  </g>
+
+  <!-- Red building -->
+  <g class="redhouse">
+    <polygon class="roof2" points="612,230 613,225 840,259 840,268"></polygon>
+    <rect class="ac" x="672" y="236" width="14" height="7"></rect>
+    <rect class="ac" x="751" y="245" width="18" height="8"></rect>
+    <rect class="ac" x="801" y="252" width="12" height="7"></rect>
+    <polygon class="c-wall" points={quad(C, 0, 1, 0, 1)}></polygon>
+    <polygon class="c-stone" points={quad(C, 0, 1, 0, 0.21)}></polygon>
+    <polygon class="c-attic" points={quad(C, 0, 1, 0.79, 1)}></polygon>
+    <polygon class="c-trim" points={quad(C, 0, 1, 0.775, 0.8)}></polygon>
+    <polygon class="c-trim" points={quad(C, 0, 1, 0.965, 1)}></polygon>
+    <polygon class="c-trim" points={quad(C, 0, 1, 0.205, 0.225)}></polygon>
+    {cFrames.map((f) => <polygon class="c-trim" points={f} />)}
+    {cWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+    {
+      cArches.map((a) => (
+        <g>
+          <polygon class="c-trim" points={a.stone} />
+          <polygon class="w lit" points={a.hole} />
+        </g>
+      ))
+    }
+  </g>
+
+  <!-- Pools of lamplight (night only) -->
+  <g class="pools">
+    {lamps.map((l) => <ellipse cx={l.pool.x} cy={l.pool.y} rx={l.pool.rx} ry={l.pool.ry} />)}
+  </g>
+
+  <!-- Moving traffic and people, filled in by the script -->
+  <g data-cars></g>
+  <g data-walkers></g>
+
+  <!-- Street lamps -->
+  <g class="lamps">
+    {
+      lamps.map((l) => (
+        <g>
+          <polygon class="lamp-pole" points={l.pole} />
+          <path class="lamp-arm" d={l.arm} style={`stroke-width:${l.width}`} />
+          <ellipse class="lamp-head" cx={l.head.x} cy={l.head.y} rx={l.head.rx} ry={l.head.ry} />
+          <circle class="lamp-glow" cx={l.glow.x} cy={l.glow.y} r={l.glow.r} fill="url(#lamp-glow)" />
+        </g>
+      ))
+    }
+  </g>
+
+  <!-- Trees along the river -->
+  {
+    trees.map((t) => (
+      <g class="tree">
+        <polygon class="trunk" points={t.trunk} />
+        <g class="canopy" style={`transform-origin:${t.origin};animation-delay:${t.delay}s`}>
+          {t.circles.map((c) => (
+            <circle class="rim" cx={c.x - t.rim} cy={c.y - t.rim} r={c.r} />
+          ))}
+          {t.circles.map((c) => (
+            <circle class="leaf" cx={c.x} cy={c.y} r={c.r} />
+          ))}
+          {t.circles.slice(3, 6).map((c) => (
+            <circle class="leaf-light" cx={c.x - c.r * 0.25} cy={c.y - c.r * 0.3} r={c.r * 0.55} />
+          ))}
+        </g>
+      </g>
+    ))
+  }
+
+  <rect width="840" height="600" fill="url(#vignette)" pointer-events="none"></rect>
+</svg>
+
+<style is:global>
+  /* Day: sunrise over the Odra. */
+  .scene {
+    --sky1: #e4bc9c;
+    --sky2: #f1cfa9;
+    --sky3: #fbe5c2;
+    --sun-op: 1;
+    --moon-op: 0;
+    --star-op: 0;
+    --cloud: #fcebd3;
+    --cloud-op: 0.6;
+    --haze: #d8b5a2;
+    --haze-win: #d8b5a2;
+    --far-tree: #8f8a6b;
+    --water1: #efc9a6;
+    --water2: #93787f;
+    --sun-glint-op: 0.55;
+    --moon-glint-op: 0;
+    --stone: #cdb99c;
+    --stone-dark: #a6927a;
+    --path: #c9b394;
+    --grass: #7d8550;
+    --road: #9b8e87;
+    --mark: #f1e6d4;
+    --rail: #6d635e;
+    --curb: #e3d4bc;
+    --walk: #ccb89d;
+    --a-wall: #edd6a3;
+    --a-low: #dcc08b;
+    --a-light: #f7e7c0;
+    --a-trim: #c9a56d;
+    --roof: #4a4547;
+    --roof2: #6b5f5a;
+    --dome: #56635c;
+    --gold: #e8c160;
+    --win: #5c4b40;
+    --win-gl: #d9aa7e;
+    --win-lit: #f2c46a;
+    --b-wall: #ecdba5;
+    --b-low: #ddc78f;
+    --b-trim: #f7eed3;
+    --b-side: #cfb57f;
+    --c-wall: #c97a5f;
+    --c-stone: #e6d6bb;
+    --c-attic: #f1e7d6;
+    --c-trim: #f7efe2;
+    --ac: #e9e4dc;
+    --bg1: #c9ab98;
+    --bg2: #b99c8b;
+    --bg3: #d3baa2;
+    --bg-roof: #7d6a62;
+    --brick: #a35e48;
+    --spire: #5d4a46;
+    --leaf: #3e5133;
+    --leaf-light: #5b6f3e;
+    --rim: #f0c46e;
+    --trunk: #4a3a2c;
+    --lamp: #3b3836;
+    --lamp-op: 0;
+    --beam-op: 0;
+    --cast-op: 0.16;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Night: the same street after dark, university floodlit. */
+  :root[data-theme='dark'] .scene {
+    --sky1: #0a0f1e;
+    --sky2: #151c35;
+    --sky3: #2e2b47;
+    --sun-op: 0;
+    --moon-op: 1;
+    --star-op: 0.9;
+    --cloud: #2a3253;
+    --cloud-op: 0.4;
+    --haze: #25263b;
+    --haze-win: #e8c46e;
+    --far-tree: #182122;
+    --water1: #2a2d47;
+    --water2: #10131d;
+    --sun-glint-op: 0;
+    --moon-glint-op: 0.1;
+    --stone: #45434a;
+    --stone-dark: #2c2b31;
+    --path: #38353d;
+    --grass: #1d2820;
+    --road: #333239;
+    --mark: #7f7b77;
+    --rail: #57545c;
+    --curb: #56525a;
+    --walk: #403c43;
+    --a-wall: #bd965d;
+    --a-low: #a37e4b;
+    --a-light: #d1ab70;
+    --a-trim: #8c6b3f;
+    --roof: #1c1b21;
+    --roof2: #25242b;
+    --dome: #222a28;
+    --gold: #f2d27e;
+    --win: #1c1c23;
+    --win-gl: #1c1c23;
+    --b-wall: #615a47;
+    --b-low: #554f3e;
+    --b-trim: #7b7461;
+    --b-side: #4a4538;
+    --c-wall: #5d3d39;
+    --c-stone: #58524a;
+    --c-attic: #6c675f;
+    --c-trim: #7e786f;
+    --ac: #4a4850;
+    --bg1: #302e39;
+    --bg2: #2a2933;
+    --bg3: #35333d;
+    --bg-roof: #1e1d24;
+    --brick: #3c2a26;
+    --spire: #1f1b1d;
+    --leaf: #142019;
+    --leaf-light: #1c2a20;
+    --rim: #2f3d35;
+    --trunk: #18140f;
+    --lamp: #151418;
+    --lamp-op: 1;
+    --beam-op: 0.6;
+    --cast-op: 0;
+  }
+
+  .scene * {
+    transition:
+      fill 0.6s ease,
+      opacity 0.6s ease,
+      stop-color 0.6s ease;
+  }
+
+  .scene .sun {
+    opacity: var(--sun-op);
+  }
+  .scene .moon {
+    opacity: var(--moon-op);
+  }
+  .scene .stars circle {
+    fill: #fff;
+    opacity: var(--star-op);
+    animation: scene-twinkle 4s ease-in-out infinite;
+  }
+  .scene .clouds ellipse {
+    fill: var(--cloud);
+    opacity: var(--cloud-op);
+  }
+  .scene .clouds {
+    animation: scene-drift 70s ease-in-out infinite alternate;
+  }
+  .scene .haze {
+    fill: var(--haze);
+  }
+  .scene .haze-win {
+    fill: var(--haze-win);
+  }
+  .scene .far-trees {
+    fill: var(--far-tree);
+  }
+  .scene .reflect-dark {
+    fill: var(--far-tree);
+    opacity: 0.35;
+  }
+  .scene .bank-reflect {
+    fill: var(--leaf);
+    opacity: 0.28;
+  }
+  .scene .sun-glint {
+    fill: #fff3d4;
+    opacity: var(--sun-glint-op);
+  }
+  .scene .moon-glint {
+    fill: #efe6cc;
+    opacity: var(--moon-glint-op);
+  }
+  .scene .sun-sparks rect {
+    fill: #fffaf0;
+    opacity: var(--sun-op);
+    animation: scene-spark 3s ease-in-out infinite;
+  }
+  .scene .ripples rect {
+    fill: #fff;
+    opacity: 0.18;
+    animation: scene-ripple 9s ease-in-out infinite;
+  }
+  .scene .bridge-reflect path {
+    fill: var(--stone);
+    opacity: 0.22;
+  }
+  .scene .stone {
+    fill: var(--stone);
+  }
+  .scene .stone-dark {
+    fill: var(--stone-dark);
+  }
+  .scene .rail-line,
+  .scene .lamp-post {
+    stroke: var(--stone-dark);
+    stroke-width: 0.9;
+    fill: none;
+  }
+  .scene .lamp-glow,
+  .scene .pools ellipse {
+    opacity: var(--lamp-op);
+  }
+  .scene .pools ellipse {
+    fill: #ffcf7a;
+    opacity: calc(var(--lamp-op) * 0.18);
+  }
+  .scene .lamp-streak {
+    fill: #f5c76b;
+    opacity: calc(var(--lamp-op) * 0.35);
+  }
+  .scene .path {
+    fill: var(--path);
+  }
+  .scene .grass {
+    fill: var(--grass);
+  }
+  .scene .road {
+    fill: var(--road);
+  }
+  .scene .cast {
+    fill: #2b1d14;
+    opacity: var(--cast-op);
+  }
+  .scene .rail {
+    fill: var(--rail);
+  }
+  .scene .mark {
+    fill: var(--mark);
+    opacity: 0.85;
+  }
+  .scene .curb {
+    fill: var(--curb);
+  }
+  .scene .walk {
+    fill: var(--walk);
+  }
+  .scene .roof {
+    fill: var(--roof);
+  }
+  .scene .roof2 {
+    fill: var(--roof2);
+  }
+  .scene .dormer {
+    fill: var(--a-light);
+    opacity: 0.8;
+  }
+  .scene .a-wall {
+    fill: var(--a-wall);
+  }
+  .scene .a-low {
+    fill: var(--a-low);
+  }
+  .scene .a-light {
+    fill: var(--a-light);
+  }
+  .scene .a-trim {
+    fill: var(--a-trim);
+  }
+  .scene .statue {
+    fill: var(--a-trim);
+  }
+  .scene .clock {
+    fill: var(--a-light);
+    stroke: var(--a-trim);
+    stroke-width: 0.8;
+  }
+  .scene .dome {
+    fill: var(--dome);
+  }
+  .scene .dome-shine {
+    fill: #fff;
+    opacity: 0.14;
+  }
+  .scene .gold {
+    fill: var(--gold);
+  }
+  .scene .gold-line {
+    stroke: var(--gold);
+    stroke-width: 1.1;
+    fill: none;
+  }
+  .scene .w {
+    fill: var(--win);
+  }
+  .scene .gl {
+    fill: var(--win-gl);
+  }
+  :root[data-theme='dark'] .scene .lit {
+    fill: var(--win-lit);
+  }
+  .scene .b-wall {
+    fill: var(--b-wall);
+  }
+  .scene .b-low {
+    fill: var(--b-low);
+  }
+  .scene .b-trim {
+    fill: var(--b-trim);
+  }
+  .scene .b-side {
+    fill: var(--b-side);
+  }
+  .scene .c-wall {
+    fill: var(--c-wall);
+  }
+  .scene .c-stone {
+    fill: var(--c-stone);
+  }
+  .scene .c-attic {
+    fill: var(--c-attic);
+  }
+  .scene .c-trim {
+    fill: var(--c-trim);
+  }
+  .scene .ac {
+    fill: var(--ac);
+  }
+  .scene .bg1 {
+    fill: var(--bg1);
+  }
+  .scene .bg2 {
+    fill: var(--bg2);
+  }
+  .scene .bg3 {
+    fill: var(--bg3);
+  }
+  .scene .bg-roof {
+    fill: var(--bg-roof);
+  }
+  .scene .brick {
+    fill: var(--brick);
+  }
+  .scene .spire {
+    fill: var(--spire);
+  }
+  .scene .lamp-pole,
+  .scene .lamp-head {
+    fill: var(--lamp);
+  }
+  .scene .lamp-arm {
+    stroke: var(--lamp);
+    fill: none;
+  }
+  .scene .trunk {
+    fill: var(--trunk);
+  }
+  .scene .rim {
+    fill: var(--rim);
+  }
+  .scene .leaf {
+    fill: var(--leaf);
+  }
+  .scene .leaf-light {
+    fill: var(--leaf-light);
+    opacity: 0.8;
+  }
+  .scene .canopy {
+    animation: scene-sway 7s ease-in-out infinite alternate;
+  }
+
+  /* Cars */
+  .scene .car {
+    transition: none;
+  }
+  .scene .c-body {
+    fill: var(--c, #ddd);
+  }
+  .scene .c-shine {
+    fill: #fff;
+    opacity: 0.16;
+  }
+  .scene .c-shadow {
+    fill: #000;
+    opacity: 0.2;
+  }
+  .scene .c-glass {
+    fill: #27313c;
+  }
+  .scene .c-head {
+    fill: #fff4cf;
+  }
+  .scene .c-tail {
+    fill: #b3261e;
+  }
+  .scene .beam {
+    fill: url(#beam);
+    opacity: var(--beam-op);
+  }
+
+  /* People */
+  .scene .walker .leg {
+    stroke: var(--pants, #333);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: scene-step 0.7s ease-in-out infinite alternate;
+    animation-delay: var(--step, 0s);
+  }
+  .scene .walker .leg-b {
+    animation-delay: calc(var(--step, 0s) - 0.7s);
+  }
+  .scene .torso {
+    fill: var(--shirt, #888);
+  }
+  .scene .head {
+    fill: var(--skin, #e0b48e);
+  }
+  .scene .hair {
+    fill: var(--hair, #2a1d14);
+  }
+  .scene .p-shadow {
+    fill: #000;
+    opacity: 0.18;
+  }
+
+  @keyframes scene-twinkle {
+    50% {
+      opacity: calc(var(--star-op) * 0.35);
+    }
+  }
+  @keyframes scene-drift {
+    to {
+      transform: translateX(40px);
+    }
+  }
+  @keyframes scene-spark {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: var(--sun-op);
+    }
+  }
+  @keyframes scene-ripple {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.05;
+    }
+    50% {
+      transform: translateX(8px);
+      opacity: 0.22;
+    }
+  }
+  @keyframes scene-sway {
+    from {
+      transform: rotate(-0.7deg);
+    }
+    to {
+      transform: rotate(0.7deg);
+    }
+  }
+  @keyframes scene-step {
+    from {
+      transform: rotate(22deg);
+    }
+    to {
+      transform: rotate(-22deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene * {
+      animation: none !important;
+    }
+  }
+</style>

@@ -1,0 +1,221 @@
+---
+// A pull cord hanging from the top of the page. Pulling it switches the
+// room lamp: day, or night with one dim lamp above the page.
+---
+
+<div class="cord-wrap">
+  <button class="cord" type="button" role="switch" aria-checked="false" aria-label="Lamp cord: night theme" data-cord>
+    <span class="string"></span>
+    <span class="pull">
+      <span class="cap"></span>
+      <span class="bead"></span>
+      <span class="cap low"></span>
+    </span>
+  </button>
+  <span class="hint label" data-cord-hint aria-hidden="true">Pull for night</span>
+</div>
+
+<script>
+  const cord = document.querySelector<HTMLButtonElement>('[data-cord]');
+  const wrap = cord?.parentElement;
+  const hint = document.querySelector<HTMLElement>('[data-cord-hint]');
+  const root = document.documentElement;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (cord) {
+    const paint = () => {
+      const night = root.dataset.theme === 'dark';
+      cord.setAttribute('aria-checked', String(night));
+      if (hint) hint.textContent = night ? 'Pull for day' : 'Pull for night';
+    };
+
+    const toggle = () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      try {
+        localStorage.setItem('theme', next);
+      } catch {}
+      paint();
+    };
+
+    // The cord is a spring: pulling stretches it, letting go makes it bounce back.
+    // TODO(human): choose how the cord feels when it springs back.
+    const STIFFNESS = 520; // how hard it pulls back towards rest
+    const DAMPING = 16; // how quickly the bouncing dies away
+
+    let stretch = 0;
+    let speed = 0;
+    let raf = 0;
+    let last = 0;
+    const show = () => wrap?.style.setProperty('--stretch', `${stretch.toFixed(2)}px`);
+
+    const settle = (now: number) => {
+      const dt = last ? Math.min(0.032, (now - last) / 1000) : 0.016;
+      last = now;
+      speed += (-STIFFNESS * stretch - DAMPING * speed) * dt; // spring force and friction
+      stretch += speed * dt;
+      show();
+      if (Math.abs(stretch) > 0.05 || Math.abs(speed) > 1) raf = requestAnimationFrame(settle);
+      else {
+        stretch = 0;
+        show();
+      }
+    };
+    const release = () => {
+      cancelAnimationFrame(raf);
+      if (reduced) {
+        stretch = 0;
+        show();
+        return;
+      }
+      last = 0;
+      raf = requestAnimationFrame(settle);
+    };
+
+    let drag: { y: number; moved: boolean } | null = null;
+    let skipClick = false;
+
+    cord.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      drag = { y: e.clientY, moved: false };
+      cord.setPointerCapture(e.pointerId);
+      cancelAnimationFrame(raf);
+    });
+    cord.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const pulled = Math.max(0, e.clientY - drag.y);
+      if (pulled > 3) drag.moved = true;
+      stretch = 70 * (1 - Math.exp(-pulled / 70)); // gets harder the further you pull
+      speed = 0;
+      show();
+    });
+    const letGo = () => {
+      if (!drag) return;
+      if (drag.moved) {
+        skipClick = true;
+        if (stretch > 16) toggle();
+      }
+      drag = null;
+      release();
+    };
+    cord.addEventListener('pointerup', letGo);
+    cord.addEventListener('pointercancel', letGo);
+
+    // A click, a tap or the keyboard gives the cord one quick tug.
+    cord.addEventListener('click', () => {
+      if (skipClick) {
+        skipClick = false;
+        return;
+      }
+      toggle();
+      cancelAnimationFrame(raf);
+      speed = 260;
+      release();
+    });
+
+    paint();
+  }
+</script>
+
+<style>
+  .cord-wrap {
+    --stretch: 0px;
+    position: absolute;
+    top: 0;
+    right: clamp(12px, 4vw, 40px);
+    display: grid;
+    justify-items: center;
+    z-index: 6;
+  }
+
+  .cord {
+    --len: 104px;
+    position: relative;
+    width: 36px;
+    height: calc(var(--len) + 34px);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: grab;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cord:active {
+    cursor: grabbing;
+  }
+
+  /* A twisted cotton cord. */
+  .string {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: calc(var(--len) + var(--stretch));
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(160deg, #d8cbb3 0 2px, #9f9079 2px 4px);
+  }
+
+  /* An oak pull, like the window, with brass caps. */
+  .pull {
+    position: absolute;
+    top: calc(var(--len) + var(--stretch) - 2px);
+    left: 50%;
+    display: grid;
+    justify-items: center;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 4px 4px rgba(30, 15, 0, 0.35));
+  }
+
+  .bead {
+    width: 15px;
+    height: 26px;
+    margin-top: -1px;
+    border-radius: 45% 45% 50% 50% / 30% 30% 70% 70%;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 236, 205, 0.7), transparent 35%),
+      repeating-linear-gradient(92deg, rgba(60, 30, 5, 0.12) 0 1px, transparent 1px 3px),
+      linear-gradient(90deg, #7a4a24, #b77d48 40%, #a46a38 70%, #6c401f);
+  }
+
+  .cap {
+    width: 8px;
+    height: 4px;
+    border-radius: 2px 2px 1px 1px;
+    background: linear-gradient(90deg, #8a6522, #e9c779 45%, #9a7428);
+  }
+
+  .cap.low {
+    width: 6px;
+    height: 3px;
+    margin-top: -1px;
+    border-radius: 1px 1px 3px 3px;
+  }
+
+  .cord:focus-visible {
+    outline: none;
+  }
+
+  .cord:focus-visible .bead {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+  }
+
+  .hint {
+    transform: translateY(var(--stretch));
+    width: 5.5em;
+    margin-top: 2px;
+    font-size: 0.6rem;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  @media (max-width: 600px) {
+    .cord {
+      --len: 46px;
+    }
+    .hint {
+      display: none;
+    }
+  }
+</style>

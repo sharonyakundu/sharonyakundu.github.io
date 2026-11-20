@@ -1,95 +1,381 @@
 ---
-// The framed "window" at the top of the home page.
-// Whatever is placed inside <Window>…</Window> shows through the glass.
-// With nothing inside, a plain sky is shown as a placeholder.
-interface Props {
-  caption?: string;
-}
-const { caption } = Astro.props;
+// A wooden sash window looking onto Wrocław. The lower sash slides up:
+// click it, or drag it with a mouse.
+import Scene from './Scene.astro';
 ---
 
-<figure class="window">
-  <div class="frame">
-    <div class="glass">
-      <slot>
-        <div class="sky"></div>
-      </slot>
-      <span class="bar" aria-hidden="true"></span>
+<figure class="window" data-window data-open="false">
+  <div class="casing">
+    <div class="reveal">
+      <div class="opening" data-opening>
+        <Scene />
+        <div class="sash upper" aria-hidden="true">
+          <span class="glass"></span>
+          <span class="rail wood-h top"></span>
+          <span class="rail wood-h meet"></span>
+          <span class="stile wood-v left"></span>
+          <span class="stile wood-v right"></span>
+        </div>
+        <button class="sash lower" type="button" data-sash aria-pressed="false" aria-label="Open the window">
+          <span class="glass"></span>
+          <span class="muntin wood-v m1"></span>
+          <span class="muntin wood-v m2"></span>
+          <span class="rail wood-h meet"></span>
+          <span class="rail wood-h bottom"></span>
+          <span class="stile wood-v left"></span>
+          <span class="stile wood-v right"></span>
+          <span class="handle"></span>
+        </button>
+      </div>
     </div>
   </div>
-  <div class="sill" aria-hidden="true"></div>
-  {caption && <figcaption class="label">{caption}</figcaption>}
+  <div class="sill">
+    <div class="sill-top wood-h"></div>
+    <div class="sill-front wood-h"></div>
+  </div>
+  <div class="apron wood-h"></div>
+
+  <figcaption>
+    <span class="label" data-caption>Lift the window</span>
+  </figcaption>
+  <p class="sr-only">
+    Illustration: the main building of the University of Wrocław beside the Odra river at sunrise, with cars and people
+    on the street below, seen through a wooden window.
+  </p>
 </figure>
+
+<script>
+  import '../scripts/window';
+</script>
 
 <style>
   .window {
-    --wood: #f4efe5;
-    --wood-edge: #d9d0bf;
+    --open: 0;
+    --wood-dim: rgba(0, 0, 0, 0);
+    --bead-hi: rgba(255, 240, 220, 0.3);
+    --bead-lo: rgba(40, 20, 5, 0.32);
+    container-type: inline-size;
+    position: relative;
+    width: min(640px, 100%);
     margin: 0 auto;
-    width: min(560px, 100%);
   }
 
   :global([data-theme='dark']) .window {
-    --wood: #2a2b31;
-    --wood-edge: #1b1c21;
+    --wood-dim: rgba(14, 10, 8, 0.42);
+    --bead-hi: rgba(255, 240, 220, 0.12);
   }
 
-  .frame {
-    padding: clamp(12px, 3vw, 22px);
-    background: var(--wood);
-    border: 1px solid var(--wood-edge);
-    border-radius: 3px;
-    box-shadow:
-      inset 0 0 0 4px var(--wood),
-      inset 0 0 0 5px var(--wood-edge),
-      0 18px 40px -18px rgba(23, 22, 15, 0.45);
+  /* Wood textures: grain runs along each piece. */
+  .wood-h,
+  .casing {
+    background-color: #a8703f;
+    background-image: linear-gradient(var(--wood-dim), var(--wood-dim)), url('/window/wood-h.svg');
+    background-size:
+      auto,
+      640px 160px;
+  }
+  .wood-v {
+    background-color: #a8703f;
+    background-image: linear-gradient(var(--wood-dim), var(--wood-dim)), url('/window/wood-v.svg');
+    background-size:
+      auto,
+      160px 640px;
   }
 
-  .glass {
+  /* Outer casing with mitred side pieces. */
+  .casing {
     position: relative;
-    aspect-ratio: 4 / 3;
+    padding: 3.6cqw;
+    border-radius: 0.5cqw 0.5cqw 0 0;
+    box-shadow:
+      inset 0 0.3cqw 0 var(--bead-hi),
+      inset 0 0 0 0.12cqw var(--bead-lo),
+      0 2cqw 3cqw -2cqw rgba(30, 15, 0, 0.45);
+  }
+
+  .casing::before,
+  .casing::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3.6cqw;
+    background-color: #a8703f;
+    background-image:
+      linear-gradient(90deg, var(--bead-hi), transparent 22%, var(--bead-lo) 48%, transparent 56%, var(--bead-hi) 78%, var(--bead-lo)),
+      linear-gradient(var(--wood-dim), var(--wood-dim)),
+      url('/window/wood-v.svg');
+    background-size:
+      auto,
+      auto,
+      160px 640px;
+  }
+
+  .casing::before {
+    left: 0;
+    clip-path: polygon(0 0, 100% 3.6cqw, 100% calc(100% - 3.6cqw), 0 100%);
+  }
+
+  .casing::after {
+    right: 0;
+    /* same shape as the left piece, mirrored together with its shading */
+    clip-path: polygon(0 0, 100% 3.6cqw, 100% calc(100% - 3.6cqw), 0 100%);
+    transform: scaleX(-1);
+  }
+
+  /* Moulding profile on the top and bottom pieces. */
+  .casing > .reveal::before,
+  .casing > .reveal::after {
+    content: '';
+    position: absolute;
+    left: -3.6cqw;
+    right: -3.6cqw;
+    height: 3.6cqw;
+    background: linear-gradient(var(--bead-hi), transparent 22%, var(--bead-lo) 48%, transparent 56%, var(--bead-hi) 78%, var(--bead-lo));
+    pointer-events: none;
+  }
+  .casing > .reveal::before {
+    top: -3.6cqw;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 3.6cqw) 100%, 3.6cqw 100%);
+  }
+  .casing > .reveal::after {
+    bottom: -3.6cqw;
+    transform: scaleY(-1);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 3.6cqw) 100%, 3.6cqw 100%);
+  }
+
+  /* The jamb: a darker step that gives the window depth. */
+  .reveal {
+    position: relative;
+    padding: 1.2cqw;
+    background: linear-gradient(rgba(35, 18, 5, 0.42), rgba(35, 18, 5, 0.25));
+    box-shadow:
+      inset 0 1.2cqw 1.6cqw -0.6cqw rgba(20, 10, 0, 0.55),
+      inset 0 0 0 0.12cqw var(--bead-lo),
+      0 0 0 0.2cqw var(--bead-hi);
+  }
+
+  .opening {
+    position: relative;
+    aspect-ratio: 7 / 5;
     overflow: hidden;
-    border: 1px solid var(--wood-edge);
-    background: var(--faint);
+    background: #e9cfa9;
+    box-shadow: 0 0 0 0.12cqw rgba(20, 10, 0, 0.5);
   }
 
-  .glass :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .opening :global(.scene) {
+    position: absolute;
+    inset: 0;
   }
 
-  /* The horizontal bar that splits the window in two. */
-  .bar {
+  /* Sashes */
+  .sash {
     position: absolute;
     left: 0;
     right: 0;
-    top: 50%;
-    height: clamp(8px, 2vw, 14px);
-    transform: translateY(-50%);
-    background: var(--wood);
-    border-block: 1px solid var(--wood-edge);
+    height: 52%;
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
   }
 
-  .sky {
-    height: 100%;
-    background: linear-gradient(#9fb6cc 0%, #c9d6de 55%, #e6d9c2 100%);
+  .upper {
+    top: 0;
+    z-index: 1;
   }
 
-  :global([data-theme='dark']) .sky {
-    background: linear-gradient(#10182b 0%, #1d2a44 60%, #3a3550 100%);
+  .lower {
+    top: 48%;
+    z-index: 2;
+    cursor: grab;
+    touch-action: manipulation;
+    transform: translateY(calc(var(--open) * -88%));
+    -webkit-tap-highlight-color: transparent;
   }
 
+  .lower:active {
+    cursor: grabbing;
+  }
+
+  .lower:focus-visible {
+    outline: none;
+  }
+
+  .lower:focus-visible .handle {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+  }
+
+  .rail,
+  .stile,
+  .muntin {
+    position: absolute;
+    box-shadow:
+      inset 0 0.2cqw 0 var(--bead-hi),
+      inset 0 -0.25cqw 0 var(--bead-lo),
+      0 0.15cqw 0.35cqw rgba(20, 10, 0, 0.3);
+  }
+
+  .rail {
+    left: 0;
+    right: 0;
+  }
+  .rail.top {
+    top: 0;
+    height: 2.4cqw;
+  }
+  .rail.meet {
+    height: 2.1cqw;
+  }
+  .upper .rail.meet {
+    bottom: 0;
+  }
+  .lower .rail.meet {
+    top: 0;
+  }
+  .rail.bottom {
+    bottom: 0;
+    height: 3.3cqw;
+  }
+
+  .stile {
+    top: 0;
+    bottom: 0;
+    width: 2.3cqw;
+    box-shadow:
+      inset 0.2cqw 0 0 var(--bead-hi),
+      inset -0.25cqw 0 0 var(--bead-lo),
+      0.15cqw 0 0.35cqw rgba(20, 10, 0, 0.25);
+  }
+  .stile.left {
+    left: 0;
+  }
+  .stile.right {
+    right: 0;
+  }
+
+  .muntin {
+    top: 2cqw;
+    bottom: 3cqw;
+    width: 0.85cqw;
+    box-shadow:
+      inset 0.15cqw 0 0 var(--bead-hi),
+      inset -0.18cqw 0 0 var(--bead-lo),
+      0.2cqw 0.2cqw 0.4cqw rgba(20, 10, 0, 0.3);
+  }
+  .m1 {
+    left: calc(2.3cqw + (100% - 4.6cqw) / 3 - 0.425cqw);
+  }
+  .m2 {
+    left: calc(2.3cqw + (100% - 4.6cqw) * 2 / 3 - 0.425cqw);
+  }
+
+  /* Glass: a faint tint, reflections and a soft shadow from the frame. */
+  .glass {
+    position: absolute;
+    inset: 2cqw 2.3cqw 2cqw;
+    background:
+      linear-gradient(
+        116deg,
+        rgba(255, 255, 255, 0.24) 0%,
+        rgba(255, 255, 255, 0.06) 20%,
+        rgba(255, 255, 255, 0) 36%,
+        rgba(255, 255, 255, 0.12) 50%,
+        rgba(255, 255, 255, 0) 60%,
+        rgba(255, 255, 255, 0.05) 80%
+      ),
+      rgba(220, 232, 238, 0.08);
+    box-shadow: inset 0.5cqw 0.5cqw 1cqw rgba(20, 10, 0, 0.22);
+  }
+  .upper .glass {
+    top: 2.4cqw;
+    bottom: 2.1cqw;
+  }
+  .lower .glass {
+    top: 2.1cqw;
+    bottom: 3.3cqw;
+  }
+  :global([data-theme='dark']) .glass {
+    background:
+      linear-gradient(116deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 60%),
+      rgba(160, 180, 220, 0.04);
+  }
+
+  /* Brass lift handle */
+  .handle {
+    position: absolute;
+    left: 50%;
+    bottom: 1.05cqw;
+    width: 9cqw;
+    height: 1.15cqw;
+    transform: translateX(-50%);
+    border-radius: 0.6cqw;
+    background: linear-gradient(#f6dc96, #c99a38 45%, #8c6522);
+    box-shadow:
+      0 0.3cqw 0.35cqw rgba(30, 15, 0, 0.45),
+      inset 0 0.12cqw 0 rgba(255, 255, 255, 0.65);
+  }
+  .handle::before,
+  .handle::after {
+    content: '';
+    position: absolute;
+    top: 0.2cqw;
+    width: 1.1cqw;
+    height: 1.4cqw;
+    border-radius: 0.3cqw;
+    background: linear-gradient(#e6c272, #9a7128);
+  }
+  .handle::before {
+    left: -0.6cqw;
+  }
+  .handle::after {
+    right: -0.6cqw;
+  }
+
+  /* Sill and apron */
   .sill {
-    height: 14px;
-    margin-inline: -14px;
-    background: var(--wood);
-    border: 1px solid var(--wood-edge);
-    border-radius: 2px;
-    box-shadow: 0 10px 18px -10px rgba(23, 22, 15, 0.5);
+    position: relative;
+    z-index: 3;
+    margin: 0 -2.4cqw;
+  }
+  .sill-top {
+    height: 2.6cqw;
+    clip-path: polygon(1.6cqw 0, calc(100% - 1.6cqw) 0, 100% 100%, 0 100%);
+    background-image:
+      linear-gradient(rgba(255, 240, 220, 0.14), rgba(40, 20, 5, 0.16)),
+      linear-gradient(var(--wood-dim), var(--wood-dim)),
+      url('/window/wood-h.svg');
+    background-size:
+      auto,
+      auto,
+      640px 160px;
+  }
+  .sill-front {
+    height: 2.2cqw;
+    border-radius: 0 0 0.4cqw 0.4cqw;
+    box-shadow:
+      inset 0 0.25cqw 0 var(--bead-hi),
+      inset 0 -0.35cqw 0 var(--bead-lo),
+      0 1.4cqw 2cqw -1.2cqw rgba(30, 15, 0, 0.5);
+  }
+  .apron {
+    height: 1.8cqw;
+    margin: 0 2cqw;
+    border-radius: 0 0 0.5cqw 0.5cqw;
+    box-shadow:
+      inset 0 0.5cqw 0.6cqw -0.2cqw rgba(30, 15, 0, 0.45),
+      inset 0 -0.25cqw 0 var(--bead-lo),
+      0 1cqw 1.6cqw -1cqw rgba(30, 15, 0, 0.4);
   }
 
   figcaption {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
     margin-top: 22px;
     text-align: center;
   }

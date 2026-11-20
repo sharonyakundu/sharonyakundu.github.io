@@ -20,8 +20,8 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #0f1014;
-  --paper: #17181d;
+  --bg: #100f0e;
+  --paper: #1a1816;
   --ink: #f6f3ed;
   --body: #c4c3bf;
   --mute: #92918c;
@@ -50,6 +50,8 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: clip;
   transition: background-color 0.4s var(--ease), color 0.4s var(--ease);
 }
 
@@ -257,4 +259,49 @@ img {
   html {
     scroll-behavior: auto;
   }
+}
+
+/* Text for screen readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Night: one dim lamp hangs above the top centre of the page, out of view.
+   Its light falls off like a Gaussian curve: alpha = 0.27 * e^(-r² / 2σ²), σ = 42%.
+   A fine grain stops the dark gradient from showing bands. */
+.lamp-light {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1500px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+    radial-gradient(
+      ellipse min(900px, 140vw) 760px at 50% -90px,
+      rgba(255, 196, 132, 0.270) 0%,
+      rgba(255, 196, 132, 0.262) 10%,
+      rgba(255, 196, 132, 0.241) 20%,
+      rgba(255, 196, 132, 0.209) 30%,
+      rgba(255, 196, 132, 0.172) 40%,
+      rgba(255, 196, 132, 0.133) 50%,
+      rgba(255, 196, 132, 0.097) 60%,
+      rgba(255, 196, 132, 0.067) 70%,
+      rgba(255, 196, 132, 0.044) 80%,
+      rgba(255, 196, 132, 0.027) 90%,
+      rgba(255, 196, 132, 0.000) 100%
+    );
+  transition: opacity 0.9s ease;
+}
+
+:root[data-theme='dark'] .lamp-light {
+  opacity: 1;
 }

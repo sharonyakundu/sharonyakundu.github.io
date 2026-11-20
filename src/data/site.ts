@@ -21,7 +21,7 @@ export const nav = [
   { href: '/contact/', label: 'Contact' },
 ];
 
-// TODO(human): write the two lines Google shows for the home page.
+// Still to write: the two lines Google shows for the home page.
 // title: 50–60 characters. description: 140–160 characters.
 export const seo = {
   title: '',
