@@ -1,0 +1,9 @@
+# Downloaded packages: rebuilt by `npm install`, never stored in git
+node_modules/
+# Build output: rebuilt by `npm run build`
+dist/
+.astro/
+# macOS clutter
+.DS_Store
+# Original, full-size photos: only optimised copies go on the site
+photos/

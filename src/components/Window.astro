@@ -1,0 +1,96 @@
+---
+// The framed "window" at the top of the home page.
+// Whatever is placed inside <Window>…</Window> shows through the glass.
+// With nothing inside, a plain sky is shown as a placeholder.
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+---
+
+<figure class="window">
+  <div class="frame">
+    <div class="glass">
+      <slot>
+        <div class="sky"></div>
+      </slot>
+      <span class="bar" aria-hidden="true"></span>
+    </div>
+  </div>
+  <div class="sill" aria-hidden="true"></div>
+  {caption && <figcaption class="label">{caption}</figcaption>}
+</figure>
+
+<style>
+  .window {
+    --wood: #f4efe5;
+    --wood-edge: #d9d0bf;
+    margin: 0 auto;
+    width: min(560px, 100%);
+  }
+
+  :global([data-theme='dark']) .window {
+    --wood: #2a2b31;
+    --wood-edge: #1b1c21;
+  }
+
+  .frame {
+    padding: clamp(12px, 3vw, 22px);
+    background: var(--wood);
+    border: 1px solid var(--wood-edge);
+    border-radius: 3px;
+    box-shadow:
+      inset 0 0 0 4px var(--wood),
+      inset 0 0 0 5px var(--wood-edge),
+      0 18px 40px -18px rgba(23, 22, 15, 0.45);
+  }
+
+  .glass {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid var(--wood-edge);
+    background: var(--faint);
+  }
+
+  .glass :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* The horizontal bar that splits the window in two. */
+  .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: clamp(8px, 2vw, 14px);
+    transform: translateY(-50%);
+    background: var(--wood);
+    border-block: 1px solid var(--wood-edge);
+  }
+
+  .sky {
+    height: 100%;
+    background: linear-gradient(#9fb6cc 0%, #c9d6de 55%, #e6d9c2 100%);
+  }
+
+  :global([data-theme='dark']) .sky {
+    background: linear-gradient(#10182b 0%, #1d2a44 60%, #3a3550 100%);
+  }
+
+  .sill {
+    height: 14px;
+    margin-inline: -14px;
+    background: var(--wood);
+    border: 1px solid var(--wood-edge);
+    border-radius: 2px;
+    box-shadow: 0 10px 18px -10px rgba(23, 22, 15, 0.5);
+  }
+
+  figcaption {
+    margin-top: 22px;
+    text-align: center;
+  }
+</style>

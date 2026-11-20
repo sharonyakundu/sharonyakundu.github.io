@@ -1,0 +1,78 @@
+---
+// The shared shell around every page: fonts, the <head> tags that
+// search engines read, the header and the footer.
+import '@fontsource-variable/fraunces/opsz.css';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { site, seo } from '../data/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const isHome = Astro.url.pathname === '/';
+
+const pageTitle = title ? `${title} | ${site.name}` : seo.title || site.name;
+const pageDescription = description || seo.description || `Portfolio of ${site.name}.`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+
+// Structured data: tells search engines this site is about one person.
+const person = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: site.name,
+  url: Astro.site?.href,
+  email: `mailto:${site.email}`,
+  address: { '@type': 'PostalAddress', addressLocality: 'Wrocław', addressCountry: 'PL' },
+  alumniOf: 'Uniwersytet Wrocławski',
+  sameAs: [site.linkedin, site.instagram].filter(Boolean),
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    {site.draft && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+
+    {isHome && <script type="application/ld+json" set:html={JSON.stringify(person)} />}
+
+    <!-- Runs before the page paints so the night theme never flashes. -->
+    <script is:inline>
+      (() => {
+        let saved = null;
+        try {
+          saved = localStorage.getItem('theme');
+        } catch {}
+        const night = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (night) document.documentElement.dataset.theme = 'dark';
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

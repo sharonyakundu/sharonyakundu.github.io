@@ -1,0 +1,90 @@
+---
+import Base from '../layouts/Base.astro';
+import { education, languages, skills } from '../data/experience';
+---
+
+<Base
+  title="About"
+  description="About Sharonya Kundu: a media and communication graduate in Wrocław with experience in digital marketing, customer service and logistics."
+>
+  <header class="page-head col">
+    <span class="label">About</span>
+    <h1>A communicator who likes the practical side of things.</h1>
+  </header>
+
+  <section class="col">
+    <p class="lead">
+      I studied Media Sciences in Kolkata and moved to Poland in 2023 for a master’s in Media and Communication
+      Management at Uniwersytet Wrocławski.
+    </p>
+    <p>
+      My work so far covers three fields. In digital marketing I managed an influencer partnership and paid campaigns
+      for Wow Momo Foods, and later produced weekly short-form content for an education consultancy. In customer
+      service I worked the counter and drive-thru at McDonald’s and trained new colleagues. In logistics I inspect
+      inbound goods and check shipment documents.
+    </p>
+    <p>What connects them is clear communication and attention to detail.</p>
+  </section>
+
+  <section class="col section" aria-labelledby="education">
+    <h2 id="education">Education</h2>
+    <ul class="rows list">
+      {
+        education.map((item) => (
+          <li>
+            <span class="mono">{item.dates}</span>
+            <div>
+              <h3>{item.degree}</h3>
+              <p>{item.school}</p>
+              <p class="mono">{item.note}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="col section" aria-labelledby="skills">
+    <h2 id="skills">Skills</h2>
+    <ul class="rows list">
+      {
+        skills.map((group) => (
+          <li>
+            <span class="label">{group.group}</span>
+            <ul class="chips">
+              {group.items.map((item) => (
+                <li>{item}</li>
+              ))}
+            </ul>
+          </li>
+        ))
+      }
+      <li>
+        <span class="label">Languages</span>
+        <ul class="chips">
+          {
+            languages.map((language) => (
+              <li>
+                {language.name} ({language.level})
+              </li>
+            ))
+          }
+        </ul>
+      </li>
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .list {
+    margin-top: 28px;
+  }
+
+  .section {
+    padding-bottom: 0;
+  }
+
+  .section:last-of-type {
+    padding-bottom: clamp(48px, 9vw, 104px);
+  }
+</style>

@@ -1,0 +1,127 @@
+---
+import Base from '../layouts/Base.astro';
+import Cassette from '../components/Cassette.astro';
+import { tapes, certificates } from '../data/work';
+---
+
+<Base
+  title="Work and certificates"
+  description="Short-form video work and certificates by Sharonya Kundu: Instagram reels, digital marketing, SEO and design courses."
+>
+  <header class="page-head col">
+    <span class="label">Work</span>
+    <h1>Press play on a tape.</h1>
+    <p class="lead">Each cassette holds one reel. Pick one and it loads here.</p>
+  </header>
+
+  <section class="wide" aria-label="Reels">
+    <ul class="shelf">
+      {
+        tapes.map((tape, index) => (
+          <li>
+            <Cassette tape={tape} index={index} />
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <dialog class="player" aria-label="Reel player">
+    <form method="dialog">
+      <button class="label eject">Eject ✕</button>
+    </form>
+    <div class="screen" data-screen></div>
+  </dialog>
+
+  <section class="col section" aria-labelledby="certificates">
+    <h2 id="certificates">Certificates</h2>
+    <ul class="rows list">
+      {
+        certificates.map((item) => (
+          <li>
+            <span class="mono">{item.date}</span>
+            <div>
+              <h3>{item.title}</h3>
+              <p class="mono">
+                {item.issuer}
+                {item.hours && ` · ${item.hours}`}
+              </p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Base>
+
+<script>
+  // The Instagram player is only fetched when a tape is pressed,
+  // so the page itself stays fast.
+  const player = document.querySelector<HTMLDialogElement>('.player');
+  const screen = document.querySelector<HTMLElement>('[data-screen]');
+
+  document.querySelectorAll<HTMLButtonElement>('.tape[data-reel]').forEach((tape) => {
+    tape.addEventListener('click', () => {
+      const reel = tape.dataset.reel;
+      if (!reel || !player || !screen) return;
+      const frame = document.createElement('iframe');
+      frame.src = `https://www.instagram.com/reel/${encodeURIComponent(reel)}/embed/`;
+      frame.title = tape.dataset.title ?? 'Instagram reel';
+      frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+      screen.replaceChildren(frame);
+      player.showModal();
+    });
+  });
+
+  // Ejecting the tape removes the player, which also stops the sound.
+  player?.addEventListener('close', () => screen?.replaceChildren());
+</script>
+
+<style>
+  .shelf {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 28px 20px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .player {
+    width: min(420px, 100% - 24px);
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--body);
+  }
+
+  .player::backdrop {
+    background: rgba(6, 6, 6, 0.6);
+  }
+
+  .player form {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .eject {
+    background: none;
+    border: 0;
+    padding: 6px 4px 10px;
+    cursor: pointer;
+  }
+
+  .screen :global(iframe) {
+    display: block;
+    width: 100%;
+    height: min(72vh, 680px);
+    border: 0;
+    border-radius: 6px;
+    background: var(--bg);
+  }
+
+  .list {
+    margin-top: 28px;
+  }
+</style>

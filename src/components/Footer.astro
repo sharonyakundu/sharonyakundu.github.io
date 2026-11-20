@@ -1,0 +1,56 @@
+---
+import { site } from '../data/site';
+const year = new Date().getFullYear();
+---
+
+<footer class="site-foot">
+  <div class="col">
+    <hr class="rule" />
+    <p class="label">Get in touch</p>
+    <p class="hello">
+      <a href={`mailto:${site.email}`}>{site.email}</a>
+    </p>
+    <ul class="links">
+      {site.linkedin && <li><a class="label" href={site.linkedin} rel="me noopener">LinkedIn</a></li>}
+      {site.instagram && <li><a class="label" href={site.instagram} rel="me noopener">Instagram</a></li>}
+      <li><a class="label" href="/contact/">Contact</a></li>
+    </ul>
+    <p class="mono">© {year} {site.name}</p>
+  </div>
+</footer>
+
+<style>
+  .site-foot {
+    padding-block: 24px 56px;
+    text-align: center;
+  }
+
+  .rule {
+    margin-bottom: 48px;
+  }
+
+  .hello {
+    font-family: var(--head);
+    font-size: clamp(1.4rem, 4.5vw, 2.2rem);
+    color: var(--ink);
+    margin: 12px 0 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .hello a {
+    text-decoration: none;
+  }
+
+  .links {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 32px;
+  }
+
+  .links a {
+    text-decoration: none;
+  }
+</style>

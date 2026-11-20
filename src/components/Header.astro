@@ -1,0 +1,141 @@
+---
+import { site, nav } from '../data/site';
+const here = Astro.url.pathname;
+---
+
+<header class="site-head">
+  <a class="label name" href="/">{site.name}</a>
+  <p class="label">{site.location}</p>
+  <p class="label clock"><time data-clock data-zone={site.timeZone}>&nbsp;</time></p>
+
+  <nav aria-label="Main">
+    <ul>
+      {
+        nav.map((item) => (
+          <li>
+            <a class="label" href={item.href} aria-current={here === item.href ? 'page' : undefined}>
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+
+  <button class="theme label" type="button" data-theme-toggle aria-label="Switch between day and night">
+    <span class="lamp" aria-hidden="true"></span>
+    <span data-theme-text>Night</span>
+  </button>
+</header>
+
+<script>
+  // Local time in Wrocław, refreshed every 30 seconds.
+  const clock = document.querySelector<HTMLTimeElement>('[data-clock]');
+  if (clock) {
+    const format = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: clock.dataset.zone,
+      timeZoneName: 'short',
+    });
+    const tick = () => (clock.textContent = format.format(new Date()));
+    tick();
+    setInterval(tick, 30_000);
+  }
+
+  // Day / night switch. The choice is remembered on this device.
+  const button = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  const text = document.querySelector('[data-theme-text]');
+  const root = document.documentElement;
+  const paint = () => {
+    if (text) text.textContent = root.dataset.theme === 'dark' ? 'Day' : 'Night';
+  };
+  paint();
+  button?.addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {}
+    paint();
+  });
+</script>
+
+<style>
+  .site-head {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 28px 16px 8px;
+    text-align: center;
+  }
+
+  .site-head p {
+    margin: 0;
+  }
+
+  .name {
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .clock {
+    min-height: 1.6em;
+  }
+
+  nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 24px;
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+  }
+
+  nav a {
+    text-decoration: none;
+    padding-block: 6px;
+    display: inline-block;
+  }
+
+  nav a:hover,
+  nav a[aria-current='page'] {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+
+  .theme {
+    position: absolute;
+    top: 24px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: 0;
+    padding: 6px;
+    cursor: pointer;
+  }
+
+  .theme:hover {
+    color: var(--ink);
+  }
+
+  .lamp {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--mute);
+    background: linear-gradient(90deg, var(--mute) 50%, transparent 50%);
+  }
+
+  @media (max-width: 520px) {
+    .theme {
+      position: static;
+      margin-top: 6px;
+    }
+  }
+</style>

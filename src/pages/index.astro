@@ -1,0 +1,136 @@
+---
+import Base from '../layouts/Base.astro';
+import Window from '../components/Window.astro';
+import { roles } from '../data/experience';
+import { testimonial } from '../data/work';
+
+const cards = roles.filter((role) => role.onHome);
+---
+
+<Base>
+  <section class="hero wide">
+    <Window caption="Illustration in progress" />
+  </section>
+
+  <section class="col intro">
+    <h1>Digital marketing, customer service and logistics.</h1>
+    <p class="lead">
+      I’m Sharonya, a media and communication graduate based in Wrocław. I have run influencer and paid social
+      campaigns, served customers face to face, and checked shipments for quality.
+    </p>
+    <p class="actions">
+      <a class="button" href="/work/">See my work</a>
+      <a class="button" href="/cv/">Read my CV</a>
+    </p>
+  </section>
+
+  <section class="wide section" aria-labelledby="experience">
+    <h2 id="experience" class="label heading">Experience</h2>
+    <ul class="cards">
+      {
+        cards.map((role) => (
+          <li class="card">
+            <p class="label">{role.field}</p>
+            <h3>{role.company}</h3>
+            <p class="mono">
+              {role.title} · {role.dates}
+            </p>
+            <p class="highlight">{role.highlight}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="col section quote" aria-labelledby="said">
+    <h2 id="said">From people I’ve worked with</h2>
+    <figure>
+      <blockquote>“{testimonial.quote}”</blockquote>
+      <figcaption>
+        <strong>{testimonial.name}</strong>
+        <span class="mono">{testimonial.role}</span>
+      </figcaption>
+    </figure>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding-top: clamp(24px, 5vw, 48px);
+  }
+
+  .intro {
+    padding-top: clamp(40px, 7vw, 72px);
+    text-align: center;
+  }
+
+  .intro h1 {
+    margin-bottom: 24px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .heading {
+    margin-bottom: 20px;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .card {
+    padding: 28px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+
+  .card p {
+    margin: 0;
+  }
+
+  .card h3 {
+    margin: 14px 0 6px;
+    font-size: 1.75rem;
+  }
+
+  .card .highlight {
+    margin-top: 18px;
+    color: var(--ink);
+  }
+
+  .quote {
+    text-align: center;
+  }
+
+  .quote figure {
+    margin: 36px 0 0;
+  }
+
+  .quote blockquote {
+    margin: 0 0 20px;
+    font-size: 1.125rem;
+    color: var(--ink);
+  }
+
+  .quote figcaption {
+    display: grid;
+    gap: 2px;
+  }
+
+  .quote strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+</style>
