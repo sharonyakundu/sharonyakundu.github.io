@@ -9,6 +9,10 @@ export const site = {
   linkedin: '',
   instagram: '',
   cvFile: '', // e.g. '/Sharonya-Kundu-CV.pdf' once the PDF is in public/
+  // The letter on the Contact page is delivered by Web3Forms (free).
+  // Paste the access key they email you here. While it is empty, the
+  // visitor's own email app opens with the letter filled in instead.
+  formKey: '',
   // While true, every page asks search engines not to list it.
   // Set to false when the content is final.
   draft: true,

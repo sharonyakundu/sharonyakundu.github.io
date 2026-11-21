@@ -1,0 +1,620 @@
+---
+// Write a letter, press Send: it folds in three, slips into an envelope,
+// the flap closes, a wax seal is pressed on, and the envelope is carried
+// to the mailbox. It waits in the slot, then drops in like on the
+// reference site, and a tag says it was sent.
+import Envelope from './Envelope.astro';
+import Mailbox from './Mailbox.astro';
+import { site } from '../data/site';
+---
+
+<div class="post" data-post>
+  <div class="desk">
+    <form class="letter-wrap" data-letter novalidate>
+      <div class="paper" data-paper>
+        <p class="to"><span class="label">To</span> {site.name}</p>
+        <label class="line">
+          <span class="label">From</span>
+          <input type="email" name="email" required autocomplete="email" placeholder="your@email.com" />
+        </label>
+        <label class="line">
+          <span class="label">Subject</span>
+          <input type="text" name="subject" required maxlength="120" placeholder="What is it about?" />
+        </label>
+        <label class="body">
+          <span class="sr-only">Your message</span>
+          <textarea name="message" required rows="8" maxlength="5000" placeholder="Dear Sharonya,"></textarea>
+        </label>
+        <!-- Left empty by people; filled in by spam robots. -->
+        <input class="trap" type="checkbox" name="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <div class="foot">
+          <p class="note">I’ll only use your email to reply.</p>
+          <button class="send" type="submit">
+            Send
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3z"></path><path d="m3 7 9 6 9-6"></path></svg>
+          </button>
+        </div>
+        <p class="error" data-error role="alert"></p>
+      </div>
+
+      <!-- Where the folding happens -->
+      <div class="stage" data-stage aria-hidden="true">
+        <div class="fold" data-fold></div>
+        <div class="desk-env" data-desk-env>
+          <Envelope open />
+        </div>
+      </div>
+    </form>
+
+    <div class="box-side">
+      <Mailbox />
+      <p class="label box-hint" data-box-hint>Your letter goes in here</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { site } from '../data/site';
+
+  const post = document.querySelector<HTMLElement>('[data-post]');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (post) setup(post);
+
+  type Result = 'sent' | 'mailto' | 'failed';
+
+  function setup(post: HTMLElement) {
+    const form = post.querySelector<HTMLFormElement>('[data-letter]')!;
+    const paper = post.querySelector<HTMLElement>('[data-paper]')!;
+    const stage = post.querySelector<HTMLElement>('[data-stage]')!;
+    const fold = post.querySelector<HTMLElement>('[data-fold]')!;
+    const deskEnv = post.querySelector<HTMLElement>('[data-desk-env]')!;
+    const env = deskEnv.querySelector<HTMLElement>('[data-env]')!;
+    const flap = env.querySelector<HTMLElement>('[data-env-flap]')!;
+    const seal = env.querySelector<HTMLElement>('[data-env-seal]')!;
+    const errorEl = post.querySelector<HTMLElement>('[data-error]')!;
+    const mailbox = post.querySelector<HTMLElement>('[data-mailbox]')!;
+    const slotLetter = post.querySelector<HTMLElement>('[data-slot-letter]')!;
+    const tag = post.querySelector<HTMLElement>('[data-mail-tag]')!;
+    const hint = post.querySelector<HTMLElement>('[data-box-hint]')!;
+
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
+    const play = (el: Element, frames: Keyframe[], options: KeyframeAnimationOptions) =>
+      reduced ? Promise.resolve() : el.animate(frames, { fill: 'forwards', ...options }).finished.catch(() => {});
+
+    let busy = false;
+    let hideTag = 0;
+
+    const say = (text: string, ms = 5200) => {
+      tag.textContent = text;
+      tag.classList.add('on');
+      clearTimeout(hideTag);
+      hideTag = window.setTimeout(() => tag.classList.remove('on'), ms);
+    };
+
+    // ---- Checking the letter before it goes.
+    const read = () => {
+      const data = new FormData(form);
+      return {
+        email: String(data.get('email') ?? '').trim(),
+        subject: String(data.get('subject') ?? '').trim(),
+        message: String(data.get('message') ?? '').trim(),
+        robot: data.get('botcheck') !== null,
+      };
+    };
+    const problem = (l: ReturnType<typeof read>) => {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(l.email)) return ['email', 'Please add your email address, so I can write back.'];
+      if (l.subject.length < 2) return ['subject', 'Please give your letter a subject.'];
+      if (l.message.length < 10) return ['message', 'Your letter is a little short. Write a few more words?'];
+      return null;
+    };
+
+    // ---- Sending: through the form service if it is set up, otherwise
+    // the visitor's own email app opens with the letter filled in.
+    const deliver = async (l: ReturnType<typeof read>): Promise<Result> => {
+      if (!site.formKey) return 'mailto';
+      const stop = new AbortController();
+      const timer = setTimeout(() => stop.abort(), 15000);
+      try {
+        const res = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            access_key: site.formKey,
+            subject: `Portfolio letter: ${l.subject}`,
+            from_name: 'Portfolio website',
+            email: l.email,
+            replyto: l.email,
+            message: l.message,
+            botcheck: l.robot,
+          }),
+          signal: stop.signal,
+        });
+        const json = await res.json().catch(() => ({}));
+        return res.ok && json.success ? 'sent' : 'failed';
+      } catch {
+        return 'failed';
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    // ---- A paper copy of the letter, cut into three strips for folding.
+    const snapshot = () => {
+      const copy = paper.cloneNode(true) as HTMLElement;
+      copy.removeAttribute('data-paper');
+      copy.querySelectorAll('[data-error], .trap').forEach((el) => el.remove());
+      const fields = form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not(.trap), textarea');
+      copy.querySelectorAll('input:not(.trap), textarea').forEach((el, i) => {
+        const text = document.createElement('span');
+        text.className = el.tagName === 'TEXTAREA' ? 'written body-text' : 'written';
+        text.textContent = fields[i]?.value ?? '';
+        el.replaceWith(text);
+      });
+      return copy;
+    };
+
+    const buildFold = (w: number, h: number) => {
+      fold.replaceChildren();
+      const third = h / 3;
+      const panels = [0, 1, 2].map((k) => {
+        const panel = document.createElement('div');
+        panel.className = `panel p${k}`;
+        panel.style.top = `${k * third}px`;
+        panel.style.height = `${third}px`;
+        const front = document.createElement('div');
+        front.className = 'face front';
+        const sheet = snapshot();
+        sheet.style.width = `${w}px`;
+        sheet.style.height = `${h}px`;
+        sheet.style.top = `${-k * third}px`;
+        front.append(sheet);
+        const back = document.createElement('div');
+        back.className = 'face back';
+        panel.append(front, back);
+        fold.append(panel);
+        return panel;
+      });
+      return panels;
+    };
+
+    // ---- The whole journey of one letter.
+    const send = async () => {
+      const letter = read();
+      const issue = problem(letter);
+      if (issue) {
+        errorEl.textContent = issue[1];
+        form.querySelector<HTMLElement>(`[name="${issue[0]}"]`)?.focus();
+        void play(paper, [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(0)' }], { duration: 380, fill: 'none' });
+        return;
+      }
+      errorEl.textContent = '';
+      busy = true;
+      form.classList.add('busy');
+      const delivery = deliver(letter); // goes off now, while the letter folds
+
+      const w = paper.offsetWidth;
+      const h = paper.offsetHeight;
+      const [top, , bottom] = buildFold(w, h);
+      stage.classList.add('on');
+      paper.style.visibility = 'hidden';
+
+      // 1. Fold the bottom third up, then the top third down.
+      await play(bottom, [{ transform: 'rotateX(0deg)' }, { transform: 'translateZ(1px) rotateX(180deg)' }], { duration: 520, easing: 'cubic-bezier(.45,0,.25,1)' });
+      const envIn = play(env, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' });
+      deskEnv.classList.add('shown');
+      await play(top, [{ transform: 'rotateX(0deg)' }, { transform: 'translateZ(2px) rotateX(-180deg)' }], { duration: 520, easing: 'cubic-bezier(.45,0,.25,1)' });
+      await envIn;
+
+      // 2. Lift the folded letter over the envelope and slip it in.
+      const envBox = env.getBoundingClientRect();
+      const stageBox = stage.getBoundingClientRect();
+      const envTop = envBox.top - stageBox.top;
+      const scale = (envBox.width * 0.86) / w;
+      const above = envTop - (h / 3) * scale * 0.3 - h / 2;
+      const inside = envTop + envBox.height * 0.52 - h / 2;
+      await play(fold, [{ transform: 'none' }, { transform: `translateY(${above}px) scale(${scale})` }], { duration: 560, easing: 'cubic-bezier(.3,.7,.3,1)' });
+      await play(fold, [{ transform: `translateY(${above}px) scale(${scale})` }, { transform: `translateY(${inside}px) scale(${scale})` }], { duration: 480, easing: 'cubic-bezier(.5,0,.4,1)' });
+
+      // 3. Close the flap: it passes over the letter halfway down.
+      await play(flap, [{ transform: 'perspective(700px) rotateX(180deg)' }, { transform: 'perspective(700px) rotateX(90deg)' }], { duration: 230, easing: 'ease-in' });
+      env.classList.remove('open');
+      flap.style.zIndex = '4';
+      await play(flap, [{ transform: 'perspective(700px) rotateX(90deg)' }, { transform: 'perspective(700px) rotateX(0deg)' }], { duration: 260, easing: 'ease-out' });
+
+      // 4. Press the wax seal on.
+      await play(seal, [
+        { transform: 'translate(-50%, -50%) scale(1.9)', opacity: 0 },
+        { transform: 'translate(-50%, -50%) scale(0.92)', opacity: 1, offset: 0.7 },
+        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+      ], { duration: 340, easing: 'cubic-bezier(.5,0,.6,1)' });
+      void play(deskEnv, [{ transform: 'translateY(0)' }, { transform: 'translateY(3px)' }, { transform: 'translateY(0)' }], { duration: 220, fill: 'none' });
+      await wait(380);
+
+      // 5. Carry the envelope to the mailbox and leave it in the slot.
+      const boxBox = mailbox.getBoundingClientRect();
+      if (boxBox.top < 0 || boxBox.bottom > innerHeight) {
+        mailbox.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+        await wait(650);
+      }
+      slotLetter.hidden = false;
+      slotLetter.style.visibility = 'hidden';
+      const from = env.getBoundingClientRect();
+      const to = slotLetter.getBoundingClientRect();
+      const ghost = env.cloneNode(true) as HTMLElement;
+      Object.assign(ghost.style, {
+        position: 'fixed',
+        left: `${from.left}px`,
+        top: `${from.top}px`,
+        width: `${from.width}px`,
+        margin: '0',
+        zIndex: '60',
+        pointerEvents: 'none',
+        filter: 'drop-shadow(0 18px 18px rgba(40,25,10,.35))',
+      });
+      document.body.append(ghost);
+      deskEnv.classList.remove('shown');
+      stage.classList.remove('on');
+      const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+      const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+      const s = to.width / from.width;
+      // it comes down from above and its lower part slides into the slot
+      await play(ghost, [
+        { transform: 'translate(0,0) rotate(0deg) scale(1)', clipPath: 'inset(0 0 0 0)' },
+        { transform: `translate(${dx * 0.55}px, ${dy * 0.45 - 60}px) rotate(-7deg) scale(${(1 + s) / 2})`, clipPath: 'inset(0 0 0 0)', offset: 0.5 },
+        { transform: `translate(${dx}px, ${dy - to.height * 0.5}px) rotate(-2deg) scale(${s})`, clipPath: 'inset(0 0 0 0)', offset: 0.82 },
+        { transform: `translate(${dx}px, ${dy}px) rotate(-1deg) scale(${s})`, clipPath: 'inset(0 0 34% 0)' },
+      ], { duration: 1000, easing: 'cubic-bezier(.4,0,.2,1)' });
+      ghost.remove();
+      slotLetter.style.visibility = '';
+      resetEnvelope();
+
+      // 6. It waits in the slot. Push it in, or it goes by itself.
+      mailbox.classList.add('ready');
+      hint.textContent = 'Push it in to post it';
+      const pushed = await waitForPush(1800);
+      mailbox.classList.remove('ready');
+
+      // 7. Into the box: the same drop, flap swing and tag as the reference.
+      const result = await delivery;
+      slotLetter.style.transform = '';
+      mailbox.classList.add('sent');
+      if (result === 'sent') say('Letter sent. Thank you, I’ll write back soon.');
+      else if (result === 'mailto') say('Your email app is opening with your letter. Press send there.', 7000);
+      else say(`It could not be posted. Please email me at ${site.email}`, 9000);
+      await wait(1400);
+      mailbox.classList.remove('sent');
+      slotLetter.hidden = true;
+      hint.textContent = pushed ? 'Posted' : 'Your letter goes in here';
+
+      if (result === 'mailto') {
+        const mail = `mailto:${site.email}?subject=${encodeURIComponent(letter.subject)}&body=${encodeURIComponent(letter.message)}`;
+        window.location.href = mail;
+      }
+
+      // 8. A fresh sheet on the desk (the old one comes back if it failed).
+      if (result === 'sent') form.reset();
+      paper.style.visibility = '';
+      void play(paper, [{ transform: 'translateY(24px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'none' });
+      form.classList.remove('busy');
+      busy = false;
+      setTimeout(() => (hint.textContent = 'Your letter goes in here'), 4000);
+    };
+
+    const resetEnvelope = () => {
+      env.getAnimations().forEach((a) => a.cancel());
+      [flap, seal, fold, deskEnv].forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
+      env.classList.add('open');
+      flap.style.zIndex = '';
+      fold.replaceChildren();
+    };
+
+    // The visitor can push the waiting envelope in by hand, like on the reference.
+    const waitForPush = (ms: number) =>
+      new Promise<boolean>((resolve) => {
+        let done = false;
+        let start: { y: number; travel: number } | null = null;
+        const finish = (byHand: boolean) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          slotLetter.removeEventListener('pointerdown', down);
+          slotLetter.removeEventListener('pointermove', move);
+          slotLetter.removeEventListener('pointerup', up);
+          slotLetter.removeEventListener('click', click);
+          mailbox.classList.remove('pushing');
+          resolve(byHand);
+        };
+        const timer = window.setTimeout(() => finish(false), reduced ? 0 : ms);
+        const down = (e: PointerEvent) => {
+          clearTimeout(timer);
+          start = { y: e.clientY, travel: slotLetter.offsetHeight * 0.92 };
+          slotLetter.setPointerCapture(e.pointerId);
+        };
+        const move = (e: PointerEvent) => {
+          if (!start) return;
+          const p = Math.max(0, Math.min(1, (e.clientY - start.y) / start.travel));
+          mailbox.classList.add('pushing');
+          slotLetter.style.transform = `translateY(${34 + p * 70}%) rotate(.5deg)`;
+          if (p > 0.4) finish(true);
+        };
+        const up = () => {
+          if (!start) return;
+          start = null;
+          mailbox.classList.remove('pushing');
+          slotLetter.style.transform = '';
+          window.setTimeout(() => finish(false), 900);
+        };
+        const click = () => finish(true);
+        slotLetter.addEventListener('pointerdown', down);
+        slotLetter.addEventListener('pointermove', move);
+        slotLetter.addEventListener('pointerup', up);
+        slotLetter.addEventListener('click', click);
+      });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!busy) void send();
+    });
+    form.addEventListener('input', () => {
+      if (errorEl.textContent) errorEl.textContent = '';
+    });
+  }
+</script>
+
+<style>
+  .desk {
+    display: grid;
+    grid-template-columns: minmax(0, 520px) 216px;
+    justify-content: center;
+    align-items: end;
+    gap: clamp(32px, 6vw, 72px);
+  }
+
+  .letter-wrap {
+    position: relative;
+  }
+
+  /* A sheet of cream writing paper. */
+  .paper {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    padding: clamp(24px, 5vw, 40px) clamp(20px, 5vw, 40px) clamp(20px, 4vw, 28px);
+    color: #2a241c;
+    background:
+      url('/board/paper.svg') 0 0 / 200px 200px,
+      linear-gradient(172deg, #fcf8ee, #f4ecda 75%, #efe4cd);
+    border-radius: 2px;
+    box-shadow:
+      0 1px 1px rgba(40, 25, 10, 0.12),
+      0 22px 30px -18px rgba(40, 25, 10, 0.45);
+    text-align: left;
+  }
+
+  .paper .label {
+    color: #7a6b55;
+  }
+
+  .to {
+    margin: 0 0 6px;
+    font-family: var(--head);
+    font-size: 1.15rem;
+    color: #2a241c;
+  }
+  .to .label {
+    margin-right: 10px;
+  }
+
+  .line {
+    display: grid;
+    grid-template-columns: 5.6em 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid rgba(90, 70, 40, 0.25);
+  }
+
+  input,
+  textarea,
+  :global(.written) {
+    width: 100%;
+    padding: 10px 0 8px;
+    border: 0;
+    background: transparent;
+    color: #2a241c;
+    font: 400 1rem/1.5 var(--sans);
+    outline: none;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(90, 75, 55, 0.5);
+  }
+
+  /* Ruled lines under the message. */
+  .body {
+    display: block;
+    margin-top: 10px;
+  }
+  textarea,
+  :global(.body-text) {
+    display: block;
+    min-height: calc(1.9em * 8);
+    resize: vertical;
+    font-family: var(--head);
+    font-size: 1.08rem;
+    line-height: 1.9em;
+    background: repeating-linear-gradient(transparent 0 calc(1.9em - 1px), rgba(90, 70, 40, 0.2) calc(1.9em - 1px) 1.9em);
+    background-attachment: local;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding: 0;
+  }
+
+  .line:focus-within,
+  .body:focus-within textarea {
+    box-shadow: 0 1px 0 0 var(--blue);
+  }
+  .body:focus-within textarea {
+    box-shadow: none;
+  }
+
+  .trap {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .note {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #7a6b55;
+  }
+
+  .send {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border: 1px solid #17160f;
+    border-radius: 2px;
+    background: #17160f;
+    color: #f6efe0;
+    font: 500 0.78rem/1 var(--sans);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      transform 0.2s var(--ease),
+      background-color 0.2s;
+  }
+  .send:hover {
+    transform: translateY(-1px);
+    background: #2f55e8;
+    border-color: #2f55e8;
+  }
+  .send:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+  }
+  .send svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+  }
+  .busy .send {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  .error {
+    min-height: 1.2em;
+    margin: 6px 0 0;
+    font-size: 0.85rem;
+    color: #b3261e;
+  }
+  .error:empty {
+    margin: 0;
+    min-height: 0;
+  }
+
+  /* ---------- folding ---------- */
+  .stage {
+    position: absolute;
+    inset: 0;
+    perspective: 1400px;
+    pointer-events: none;
+    visibility: hidden;
+  }
+  .stage.on {
+    visibility: visible;
+  }
+
+  .fold {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    transform-style: preserve-3d;
+  }
+  .fold :global(.panel) {
+    position: absolute;
+    left: 0;
+    right: 0;
+    transform-style: preserve-3d;
+  }
+  .fold :global(.p0) {
+    transform-origin: 50% 100%;
+  }
+  .fold :global(.p2) {
+    transform-origin: 50% 0;
+  }
+  .fold :global(.face) {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    backface-visibility: hidden;
+  }
+  .fold :global(.face.front > *) {
+    position: absolute;
+    left: 0;
+    box-shadow: none;
+  }
+  .fold :global(.face.back) {
+    transform: rotateX(180deg);
+    background: linear-gradient(#efe5d0, #e8dcc3);
+    box-shadow: inset 0 0 0 1px rgba(90, 70, 40, 0.12);
+  }
+  .fold :global(.p1 .face.front) {
+    box-shadow: 0 10px 16px -10px rgba(40, 25, 10, 0.45);
+  }
+
+  /* No transform or filter here: the letter has to slide between the
+     envelope's back and its pocket, which only works in one layer. */
+  .desk-env {
+    --w: min(78%, 400px);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--w);
+    margin-left: calc(var(--w) * -0.5);
+    margin-top: calc(var(--w) / 1.6 * -0.38);
+    visibility: hidden;
+  }
+  .desk-env.shown {
+    visibility: visible;
+  }
+
+  .box-side {
+    display: grid;
+    justify-items: center;
+    gap: 64px;
+    padding-bottom: 56px;
+  }
+  .box-hint {
+    margin: 0;
+    text-align: center;
+  }
+
+  :global([data-theme='dark']) .paper,
+  :global([data-theme='dark']) .fold .face {
+    filter: brightness(0.86);
+  }
+
+  @media (max-width: 820px) {
+    .desk {
+      grid-template-columns: minmax(0, 520px);
+      gap: 72px;
+    }
+    .box-side {
+      padding-bottom: 40px;
+    }
+  }
+</style>

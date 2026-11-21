@@ -7,6 +7,11 @@ import Scene from './Scene.astro';
 <figure class="window" data-window data-open="false">
   <div class="casing">
     <div class="reveal">
+      <!-- The four inner faces of the wall opening, seen in depth. -->
+      <span class="jamb top wood-h" aria-hidden="true"></span>
+      <span class="jamb bottom wood-h" aria-hidden="true"></span>
+      <span class="jamb left wood-v" aria-hidden="true"></span>
+      <span class="jamb right wood-v" aria-hidden="true"></span>
       <div class="opening" data-opening>
         <Scene />
         <div class="sash upper" aria-hidden="true">
@@ -15,6 +20,7 @@ import Scene from './Scene.astro';
           <span class="rail wood-h meet"></span>
           <span class="stile wood-v left"></span>
           <span class="stile wood-v right"></span>
+          <span class="keeper"></span>
         </div>
         <button class="sash lower" type="button" data-sash aria-pressed="false" aria-label="Open the window">
           <span class="glass"></span>
@@ -24,8 +30,11 @@ import Scene from './Scene.astro';
           <span class="rail wood-h bottom"></span>
           <span class="stile wood-v left"></span>
           <span class="stile wood-v right"></span>
-          <span class="handle"></span>
+          <span class="lock"><i></i></span>
+          <span class="lift l1"></span>
+          <span class="lift l2"></span>
         </button>
+        <span class="beads" aria-hidden="true"></span>
       </div>
     </div>
   </div>
@@ -39,8 +48,8 @@ import Scene from './Scene.astro';
     <span class="label" data-caption>Lift the window</span>
   </figcaption>
   <p class="sr-only">
-    Illustration: the main building of the University of Wrocław beside the Odra river at sunrise, with cars and people
-    on the street below, seen through a wooden window.
+    Illustration: the main building of the University of Wrocław beside the Odra river at sunrise, with cars, a tram
+    and people on the street below, seen through a wooden window.
   </p>
 </figure>
 
@@ -54,6 +63,9 @@ import Scene from './Scene.astro';
     --wood-dim: rgba(0, 0, 0, 0);
     --bead-hi: rgba(255, 240, 220, 0.3);
     --bead-lo: rgba(40, 20, 5, 0.32);
+    --sheen: rgba(255, 246, 232, 0.16);
+    --sun-in: 1; /* daylight falling in through the window */
+    --depth: 2.2cqw; /* how deep the wall opening looks */
     container-type: inline-size;
     position: relative;
     width: min(640px, 100%);
@@ -63,23 +75,46 @@ import Scene from './Scene.astro';
   :global([data-theme='dark']) .window {
     --wood-dim: rgba(14, 10, 8, 0.42);
     --bead-hi: rgba(255, 240, 220, 0.12);
+    --sheen: rgba(255, 220, 170, 0.07);
+    --sun-in: 0;
   }
 
-  /* Wood textures: grain runs along each piece. */
+  /* Wood: grain runs along each piece, a soft varnish sheen across it.
+     Every piece shifts the texture so no two show the same grain. */
   .wood-h,
   .casing {
+    --gx: 0px;
+    --gy: 0px;
     background-color: #a8703f;
-    background-image: linear-gradient(var(--wood-dim), var(--wood-dim)), url('/window/wood-h.svg');
+    background-image:
+      linear-gradient(104deg, transparent 20%, var(--sheen) 34%, transparent 46%, transparent 70%, var(--sheen) 80%, transparent 88%),
+      linear-gradient(var(--wood-dim), var(--wood-dim)),
+      url('/window/wood-h.svg');
     background-size:
+      auto,
       auto,
       640px 160px;
+    background-position:
+      0 0,
+      0 0,
+      var(--gx) var(--gy);
   }
   .wood-v {
+    --gx: 0px;
+    --gy: 0px;
     background-color: #a8703f;
-    background-image: linear-gradient(var(--wood-dim), var(--wood-dim)), url('/window/wood-v.svg');
+    background-image:
+      linear-gradient(194deg, transparent 20%, var(--sheen) 34%, transparent 46%),
+      linear-gradient(var(--wood-dim), var(--wood-dim)),
+      url('/window/wood-v.svg');
     background-size:
       auto,
+      auto,
       160px 640px;
+    background-position:
+      0 0,
+      0 0,
+      var(--gx) var(--gy);
   }
 
   /* Outer casing with mitred side pieces. */
@@ -90,7 +125,8 @@ import Scene from './Scene.astro';
     box-shadow:
       inset 0 0.3cqw 0 var(--bead-hi),
       inset 0 0 0 0.12cqw var(--bead-lo),
-      0 2cqw 3cqw -2cqw rgba(30, 15, 0, 0.45);
+      0 2cqw 3cqw -2cqw rgba(30, 15, 0, 0.45),
+      0 4cqw 7cqw -3cqw rgba(30, 15, 0, 0.3);
   }
 
   .casing::before,
@@ -113,17 +149,25 @@ import Scene from './Scene.astro';
 
   .casing::before {
     left: 0;
+    background-position:
+      0 0,
+      0 0,
+      -37px -210px;
     clip-path: polygon(0 0, 100% 3.6cqw, 100% calc(100% - 3.6cqw), 0 100%);
   }
 
   .casing::after {
     right: 0;
+    background-position:
+      0 0,
+      0 0,
+      -91px -40px;
     /* same shape as the left piece, mirrored together with its shading */
     clip-path: polygon(0 0, 100% 3.6cqw, 100% calc(100% - 3.6cqw), 0 100%);
     transform: scaleX(-1);
   }
 
-  /* Moulding profile on the top and bottom pieces. */
+  /* Moulding profile on the top and bottom pieces, with a dark line at each mitre joint. */
   .casing > .reveal::before,
   .casing > .reveal::after {
     content: '';
@@ -131,7 +175,10 @@ import Scene from './Scene.astro';
     left: -3.6cqw;
     right: -3.6cqw;
     height: 3.6cqw;
-    background: linear-gradient(var(--bead-hi), transparent 22%, var(--bead-lo) 48%, transparent 56%, var(--bead-hi) 78%, var(--bead-lo));
+    background:
+      linear-gradient(45deg, transparent calc(50% - 0.06cqw), rgba(30, 14, 2, 0.35) 50%, transparent calc(50% + 0.06cqw)) left / 3.6cqw 100% no-repeat,
+      linear-gradient(-45deg, transparent calc(50% - 0.06cqw), rgba(30, 14, 2, 0.35) 50%, transparent calc(50% + 0.06cqw)) right / 3.6cqw 100% no-repeat,
+      linear-gradient(var(--bead-hi), transparent 22%, var(--bead-lo) 48%, transparent 56%, var(--bead-hi) 78%, var(--bead-lo));
     pointer-events: none;
   }
   .casing > .reveal::before {
@@ -144,15 +191,75 @@ import Scene from './Scene.astro';
     clip-path: polygon(0 0, 100% 0, calc(100% - 3.6cqw) 100%, 3.6cqw 100%);
   }
 
-  /* The jamb: a darker step that gives the window depth. */
+  /* The wall opening: four faces that turn away from us. The top one is in
+     shade, the sides catch some light, the bottom catches daylight. */
   .reveal {
     position: relative;
-    padding: 1.2cqw;
-    background: linear-gradient(rgba(35, 18, 5, 0.42), rgba(35, 18, 5, 0.25));
+    padding: var(--depth);
+    background: #3b2414;
     box-shadow:
-      inset 0 1.2cqw 1.6cqw -0.6cqw rgba(20, 10, 0, 0.55),
       inset 0 0 0 0.12cqw var(--bead-lo),
       0 0 0 0.2cqw var(--bead-hi);
+  }
+
+  .jamb {
+    position: absolute;
+    pointer-events: none;
+  }
+  .jamb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .jamb.top {
+    --gx: -310px;
+    --gy: -60px;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--depth);
+    clip-path: polygon(0 0, 100% 0, calc(100% - var(--depth)) 100%, var(--depth) 100%);
+  }
+  .jamb.top::after {
+    background: linear-gradient(rgba(25, 12, 2, 0.62), rgba(25, 12, 2, 0.4));
+  }
+  .jamb.bottom {
+    --gx: -140px;
+    --gy: -120px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--depth);
+    clip-path: polygon(var(--depth) 0, calc(100% - var(--depth)) 0, 100% 100%, 0 100%);
+  }
+  .jamb.bottom::after {
+    background:
+      linear-gradient(rgba(255, 214, 160, calc(0.22 * var(--sun-in))), transparent),
+      linear-gradient(rgba(30, 14, 2, 0.12), rgba(30, 14, 2, 0.12));
+  }
+  .jamb.left,
+  .jamb.right {
+    top: 0;
+    bottom: 0;
+    width: var(--depth);
+  }
+  .jamb.left {
+    --gx: -20px;
+    --gy: -330px;
+    left: 0;
+    clip-path: polygon(0 0, 100% var(--depth), 100% calc(100% - var(--depth)), 0 100%);
+  }
+  .jamb.right {
+    --gx: -80px;
+    --gy: -90px;
+    right: 0;
+    clip-path: polygon(0 var(--depth), 100% 0, 100% 100%, 0 calc(100% - var(--depth)));
+  }
+  .jamb.left::after {
+    background: linear-gradient(90deg, rgba(25, 12, 2, 0.45), rgba(25, 12, 2, 0.22));
+  }
+  .jamb.right::after {
+    background: linear-gradient(270deg, rgba(25, 12, 2, 0.5), rgba(25, 12, 2, 0.28));
   }
 
   .opening {
@@ -166,6 +273,29 @@ import Scene from './Scene.astro';
   .opening :global(.scene) {
     position: absolute;
     inset: 0;
+  }
+
+  /* Fine film grain over the street, as in a photograph. */
+  .opening::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url('/window/grain.png') 0 0 / 200px 200px;
+    mix-blend-mode: overlay;
+    opacity: 0.32;
+    pointer-events: none;
+  }
+
+  /* The sashes run in channels: a dark gap down each side. */
+  .beads {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    box-shadow:
+      inset 0.32cqw 0 0.45cqw -0.12cqw rgba(15, 8, 0, 0.6),
+      inset -0.32cqw 0 0.45cqw -0.12cqw rgba(15, 8, 0, 0.6),
+      inset 0 0.5cqw 0.7cqw -0.2cqw rgba(15, 8, 0, 0.55);
   }
 
   /* Sashes */
@@ -195,6 +325,8 @@ import Scene from './Scene.astro';
     touch-action: manipulation;
     transform: translateY(calc(var(--open) * -88%));
     -webkit-tap-highlight-color: transparent;
+    /* the inner sash stands a little in front: a soft shadow on the outer one */
+    filter: drop-shadow(0 0.5cqw 0.6cqw rgba(20, 10, 0, 0.28));
   }
 
   .lower:active {
@@ -205,7 +337,7 @@ import Scene from './Scene.astro';
     outline: none;
   }
 
-  .lower:focus-visible .handle {
+  .lower:focus-visible .lock {
     outline: 2px solid var(--blue);
     outline-offset: 3px;
   }
@@ -225,6 +357,8 @@ import Scene from './Scene.astro';
     right: 0;
   }
   .rail.top {
+    --gx: -220px;
+    --gy: -18px;
     top: 0;
     height: 2.4cqw;
   }
@@ -232,12 +366,18 @@ import Scene from './Scene.astro';
     height: 2.1cqw;
   }
   .upper .rail.meet {
+    --gx: -400px;
+    --gy: -95px;
     bottom: 0;
   }
   .lower .rail.meet {
+    --gx: -60px;
+    --gy: -132px;
     top: 0;
   }
   .rail.bottom {
+    --gx: -505px;
+    --gy: -48px;
     bottom: 0;
     height: 3.3cqw;
   }
@@ -257,6 +397,22 @@ import Scene from './Scene.astro';
   .stile.right {
     right: 0;
   }
+  .upper .stile.left {
+    --gx: -12px;
+    --gy: -470px;
+  }
+  .upper .stile.right {
+    --gx: -118px;
+    --gy: -260px;
+  }
+  .lower .stile.left {
+    --gx: -64px;
+    --gy: -120px;
+  }
+  .lower .stile.right {
+    --gx: -96px;
+    --gy: -390px;
+  }
 
   .muntin {
     top: 2cqw;
@@ -268,16 +424,22 @@ import Scene from './Scene.astro';
       0.2cqw 0.2cqw 0.4cqw rgba(20, 10, 0, 0.3);
   }
   .m1 {
+    --gx: -30px;
+    --gy: -200px;
     left: calc(2.3cqw + (100% - 4.6cqw) / 3 - 0.425cqw);
   }
   .m2 {
+    --gx: -140px;
+    --gy: -520px;
     left: calc(2.3cqw + (100% - 4.6cqw) * 2 / 3 - 0.425cqw);
   }
 
-  /* Glass: a faint tint, reflections and a soft shadow from the frame. */
+  /* Glass: a faint green-grey tint that softens what is behind it, a
+     reflection of the room, streaks of light and a little dust. */
   .glass {
     position: absolute;
     inset: 2cqw 2.3cqw 2cqw;
+    overflow: hidden;
     background:
       linear-gradient(
         116deg,
@@ -288,12 +450,25 @@ import Scene from './Scene.astro';
         rgba(255, 255, 255, 0) 60%,
         rgba(255, 255, 255, 0.05) 80%
       ),
-      rgba(220, 232, 238, 0.08);
-    box-shadow: inset 0.5cqw 0.5cqw 1cqw rgba(20, 10, 0, 0.22);
+      radial-gradient(120% 80% at 15% 115%, rgba(120, 70, 30, 0.14), transparent 60%),
+      rgba(214, 228, 222, 0.12);
+    box-shadow:
+      inset 0.5cqw 0.5cqw 1cqw rgba(20, 10, 0, 0.22),
+      inset 0 0 0 0.2cqw rgba(70, 100, 90, 0.14);
+  }
+  .glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url('/window/dust.png') 0 0 / 320px 320px;
+    opacity: 0.35;
   }
   .upper .glass {
     top: 2.4cqw;
     bottom: 2.1cqw;
+  }
+  .upper .glass::after {
+    background-position: -150px -60px;
   }
   .lower .glass {
     top: 2.1cqw;
@@ -302,38 +477,80 @@ import Scene from './Scene.astro';
   :global([data-theme='dark']) .glass {
     background:
       linear-gradient(116deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 60%),
-      rgba(160, 180, 220, 0.04);
+      radial-gradient(90% 70% at 50% -10%, rgba(255, 196, 132, 0.1), transparent 70%),
+      rgba(160, 180, 220, 0.05);
+  }
+  :global([data-theme='dark']) .glass::after {
+    opacity: 0.18;
   }
 
-  /* Brass lift handle */
-  .handle {
+  /* Brass: a crescent sash lock on the meeting rails, and two lifts. */
+  .lock,
+  .keeper,
+  .lift {
     position: absolute;
     left: 50%;
-    bottom: 1.05cqw;
-    width: 9cqw;
-    height: 1.15cqw;
-    transform: translateX(-50%);
-    border-radius: 0.6cqw;
-    background: linear-gradient(#f6dc96, #c99a38 45%, #8c6522);
+    background: linear-gradient(#f3d995, #c99a38 45%, #8c6522);
     box-shadow:
-      0 0.3cqw 0.35cqw rgba(30, 15, 0, 0.45),
-      inset 0 0.12cqw 0 rgba(255, 255, 255, 0.65);
+      0 0.25cqw 0.3cqw rgba(30, 15, 0, 0.45),
+      inset 0 0.1cqw 0 rgba(255, 255, 255, 0.6);
   }
-  .handle::before,
-  .handle::after {
+  .keeper {
+    bottom: 0.35cqw;
+    width: 2.6cqw;
+    height: 1.1cqw;
+    transform: translateX(0.6cqw);
+    border-radius: 0.25cqw;
+  }
+  .lock {
+    top: 0.45cqw;
+    width: 3.2cqw;
+    height: 1.2cqw;
+    transform: translateX(-2.4cqw);
+    border-radius: 0.3cqw;
+  }
+  .lock i {
+    position: absolute;
+    left: 1.2cqw;
+    top: -0.55cqw;
+    width: 3.4cqw;
+    height: 1.7cqw;
+    border-radius: 0 3cqw 3cqw 0 / 0 1.7cqw 1.7cqw 0;
+    background: linear-gradient(160deg, #f8e3a8, #c99a38 55%, #7f5a1c);
+    box-shadow: 0.2cqw 0.25cqw 0.3cqw rgba(30, 15, 0, 0.45);
+  }
+  .lock i::before {
     content: '';
     position: absolute;
-    top: 0.2cqw;
-    width: 1.1cqw;
-    height: 1.4cqw;
+    left: -0.5cqw;
+    top: 0.45cqw;
+    width: 0.8cqw;
+    height: 0.8cqw;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff2c8, #b8892e 60%, #6e4c15);
+  }
+  .lift {
+    bottom: 0.9cqw;
+    width: 3.4cqw;
+    height: 1.25cqw;
+    border-radius: 0.3cqw 0.3cqw 1cqw 1cqw;
+  }
+  .lift::after {
+    content: '';
+    position: absolute;
+    left: 0.6cqw;
+    right: 0.6cqw;
+    bottom: 0.18cqw;
+    height: 0.4cqw;
     border-radius: 0.3cqw;
-    background: linear-gradient(#e6c272, #9a7128);
+    background: rgba(60, 35, 5, 0.55);
   }
-  .handle::before {
-    left: -0.6cqw;
+  .l1 {
+    left: 22%;
   }
-  .handle::after {
-    right: -0.6cqw;
+  .l2 {
+    left: auto;
+    right: 22%;
   }
 
   /* Sill and apron */
@@ -343,18 +560,25 @@ import Scene from './Scene.astro';
     margin: 0 -2.4cqw;
   }
   .sill-top {
+    --gx: -260px;
+    --gy: -100px;
+    position: relative;
     height: 2.6cqw;
     clip-path: polygon(1.6cqw 0, calc(100% - 1.6cqw) 0, 100% 100%, 0 100%);
-    background-image:
-      linear-gradient(rgba(255, 240, 220, 0.14), rgba(40, 20, 5, 0.16)),
-      linear-gradient(var(--wood-dim), var(--wood-dim)),
-      url('/window/wood-h.svg');
-    background-size:
-      auto,
-      auto,
-      640px 160px;
+  }
+  /* Daylight falling through the window onto the sill. */
+  .sill-top::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 140% at 50% 0%, rgba(255, 220, 170, calc(0.32 * var(--sun-in))), transparent 70%),
+      linear-gradient(rgba(255, 240, 220, 0.12), rgba(40, 20, 5, 0.2));
+    transition: opacity 0.6s;
   }
   .sill-front {
+    --gx: -30px;
+    --gy: -12px;
     height: 2.2cqw;
     border-radius: 0 0 0.4cqw 0.4cqw;
     box-shadow:
@@ -363,6 +587,8 @@ import Scene from './Scene.astro';
       0 1.4cqw 2cqw -1.2cqw rgba(30, 15, 0, 0.5);
   }
   .apron {
+    --gx: -350px;
+    --gy: -70px;
     height: 1.8cqw;
     margin: 0 2cqw;
     border-radius: 0 0 0.5cqw 0.5cqw;

@@ -1,14 +1,18 @@
-// Reels shown as VHS tapes on the Work page.
-// `reel` is the code from the Instagram address:
-// instagram.com/reel/ABC123xyz/  ->  reel: 'ABC123xyz'
-// A tape with an empty `reel` is shown as "coming soon".
+// Reels shown on the phone on the Work page ("My Work").
+// link:   the Instagram address of the reel, e.g. https://www.instagram.com/reel/ABC123xyz/
+// video:  optional. A copy of the reel as an .mp4 file in public/reels/
+//         (e.g. '/reels/campaign.mp4'). With it, the reel plays by itself,
+//         silently, as soon as the phone unlocks. Without it, Instagram's own
+//         player is shown, which needs a tap to start.
+// poster: optional. A still picture from the reel in public/reels/.
+// A reel with no link and no video is shown as "coming soon".
 
-export type Tape = { title: string; client: string; year: string; reel: string; colour: string };
+export type Reel = { title: string; link: string; video?: string; poster?: string };
 
-export const tapes: Tape[] = [
-  { title: 'Coming soon', client: '', year: '', reel: '', colour: '#2f55e8' },
-  { title: 'Coming soon', client: '', year: '', reel: '', colour: '#c0392b' },
-  { title: 'Coming soon', client: '', year: '', reel: '', colour: '#e8b74a' },
+export const reels: Reel[] = [
+  { title: 'Coming soon', link: '' },
+  { title: 'Coming soon', link: '' },
+  { title: 'Coming soon', link: '' },
 ];
 
 // Certificates hung as framed pictures. `image` is the file name in

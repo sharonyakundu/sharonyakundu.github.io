@@ -81,7 +81,9 @@ const arch = (f: Facade, t0: number, t1: number, v0: number, v1: number, vTop: n
   ]);
 };
 
-type Win = { p: string; cls: string };
+type Win = { p: string; cls: string; recess?: string; sill?: string };
+// Windows sit in a recess: we see its inner side towards the far end of the
+// street (in shade, since the sun is ahead) and a stone sill below.
 const grid = (f: Facade, bays: number, rows: [number, number][], frac: number) => {
   const out: Win[] = [];
   for (let i = 0; i < bays; i++) {
@@ -89,7 +91,12 @@ const grid = (f: Facade, bays: number, rows: [number, number][], frac: number) =
     const h = frac / bays / 2;
     for (const [v0, v1] of rows) {
       const r = rand();
-      out.push({ p: quad(f, c - h, c + h, v0, v1), cls: r < 0.16 ? 'w gl' : r < 0.52 ? 'w lit' : 'w' });
+      out.push({
+        p: quad(f, c - h, c + h, v0, v1),
+        cls: r < 0.16 ? 'w gl' : r < 0.52 ? 'w lit' : 'w',
+        recess: quad(f, c - h, c - h * 0.62, v0, v1),
+        sill: quad(f, c - h * 1.2, c + h * 1.2, v0 - 0.016, v0),
+      });
     }
   }
   return out;
@@ -203,38 +210,45 @@ for (const s of skyline) {
 }
 
 // --- Trees along the river, far to near ---
+// Each crown is a cloud of leaf clusters. The sun is low and ahead, so the
+// side facing us is in shade and only the top-left edges catch the light.
 const treeZ = [8.6, 7.1, 5.9, 4.9, 4.1, 3.4, 2.8, 2.3, 1.9, 1.55, 1.25, 0.98];
-const blobs = [
-  [0, 0, 0.62],
-  [-0.46, 0.14, 0.48],
-  [0.47, 0.12, 0.5],
-  [-0.2, -0.36, 0.46],
-  [0.26, -0.33, 0.47],
-  [0.02, 0.34, 0.5],
-  [-0.62, -0.06, 0.34],
-  [0.63, -0.04, 0.36],
-];
 const trees = treeZ.map((z) => {
   const g = ground(0.2564, z);
   const R = 0.2 * g.dy;
   const trunk = 0.16 * g.dy;
   const cx = g.x;
   const cy = g.y - trunk - 0.55 * R;
-  const circles = blobs.map(([dx, dy, r]) => ({
-    x: r1(cx + (dx + (rand() - 0.5) * 0.12) * R),
-    y: r1(cy + (dy + (rand() - 0.5) * 0.12) * R),
-    r: r1(r * R * (0.92 + rand() * 0.16)),
-  }));
+  const count = Math.round(Math.min(64, Math.max(16, R / 0.8)));
+  const clusters = Array.from({ length: count }, (_, i) => {
+    const a = rand() * Math.PI * 2;
+    const d = i < 5 ? rand() * 0.35 : 0.35 + Math.sqrt(rand()) * 0.5; // a full middle, a ragged edge
+    const x = cx + Math.cos(a) * d * R;
+    const y = cy + Math.sin(a) * d * R * 0.86;
+    return { x, y, r: R * (0.13 + rand() * 0.12), lit: Math.cos(a + 2.3) * d }; // lit > 0: upper left
+  });
+  const circle = (c: { x: number; y: number; r: number }, dx = 0, dy = 0, k = 1) => ({
+    x: r1(c.x + dx),
+    y: r1(c.y + dy),
+    r: r1(c.r * k),
+  });
+  const rim = R * 0.03;
+  const branch = (side: number) =>
+    `M${r1(cx)} ${r1(cy + 0.5 * R)} Q${r1(cx + side * 0.18 * R)} ${r1(cy + 0.15 * R)} ${r1(cx + side * 0.42 * R)} ${r1(cy - 0.12 * R)}`;
   return {
-    circles,
+    rim: clusters.map((c) => circle(c, -rim, -rim)),
+    shade: clusters.map((c) => circle(c)),
+    leaf: clusters.map((c) => circle(c, -R * 0.05, -R * 0.06, 0.86)),
+    light: clusters.filter((c) => c.lit > 0.2).map((c) => circle(c, -R * 0.07, -R * 0.08, 0.6)),
+    branches: [branch(-1), branch(1)].join(' '),
+    branchWidth: r1(Math.max(0.4, 0.008 * g.dy)),
     trunk: pts([
       [cx - 0.009 * g.dy, g.y],
       [cx + 0.009 * g.dy, g.y],
-      [cx + 0.006 * g.dy, cy],
-      [cx - 0.006 * g.dy, cy],
+      [cx + 0.006 * g.dy, cy + 0.3 * R],
+      [cx - 0.006 * g.dy, cy + 0.3 * R],
     ]),
     shadow: strip(0.31, 0.055, z * 0.6, z),
-    rim: r1(R * 0.05),
     origin: `${r1(cx)}px ${r1(g.y)}px`,
     delay: r1(-rand() * 8),
   };
@@ -355,30 +369,55 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
       <stop offset="0.6" stop-color="#000" stop-opacity="0"></stop>
       <stop offset="1" stop-color="#000" stop-opacity="0.22"></stop>
     </radialGradient>
+    <!-- Window glass reflects the sky: brighter at the top. -->
+    <linearGradient id="win-glass" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" style="stop-color: var(--win-top)"></stop>
+      <stop offset="0.55" style="stop-color: var(--win)"></stop>
+      <stop offset="1" style="stop-color: var(--win)"></stop>
+    </linearGradient>
+    <!-- Morning sun reaches the upper floors; the ground floor stays in shade. -->
+    <linearGradient id="facade-sun" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#ffe2b0" stop-opacity="0.75"></stop>
+    </linearGradient>
+    <linearGradient id="facade-shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2416" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#3a2416" stop-opacity="0.5"></stop>
+    </linearGradient>
+    <!-- Floodlights at night shine up the walls from below. -->
+    <linearGradient id="uplight" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffcf86" stop-opacity="0.55"></stop>
+      <stop offset="1" stop-color="#ffcf86" stop-opacity="0"></stop>
+    </linearGradient>
+    <!-- Haze around the low sun, and faint shafts of light through it. -->
+    <radialGradient id="bloom" gradientUnits="userSpaceOnUse" cx="230" cy="140" r="520">
+      <stop offset="0" stop-color="#fff2d6" stop-opacity="0.55"></stop>
+      <stop offset="0.18" stop-color="#ffe2b8" stop-opacity="0.22"></stop>
+      <stop offset="0.5" stop-color="#ffd4a0" stop-opacity="0.06"></stop>
+      <stop offset="1" stop-color="#ffd4a0" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="shaft" gradientUnits="userSpaceOnUse" cx="230" cy="140" r="560">
+      <stop offset="0" stop-color="#fff4dc" stop-opacity="0.5"></stop>
+      <stop offset="1" stop-color="#fff4dc" stop-opacity="0"></stop>
+    </radialGradient>
+    <filter id="far-blur" x="-5%" y="-5%" width="110%" height="110%">
+      <feGaussianBlur stdDeviation="0.7"></feGaussianBlur>
+    </filter>
     <clipPath id="ground-clip">
       <rect x="0" y="236" width="840" height="364"></rect>
     </clipPath>
 
-    <!-- Templates the script copies for each car and each walker. -->
-    <g id="tpl-car" class="car">
-      <path class="beam" d="M-8 -20 L-17 -62 L17 -62 L8 -20 Z"></path>
-      <rect class="c-shadow" x="-9" y="-17" width="22" height="41" rx="7"></rect>
-      <rect class="c-body" x="-10" y="-20" width="20" height="40" rx="6.5"></rect>
-      <path class="c-glass" d="M-8 -9 L8 -9 L7 -3.5 L-7 -3.5 Z M-7 8.5 L7 8.5 L8 13 L-8 13 Z"></path>
-      <rect class="c-body" x="-7.5" y="-3.5" width="15" height="12" rx="2.5"></rect>
-      <rect class="c-shine" x="-7.5" y="-3.5" width="15" height="12" rx="2.5"></rect>
-      <rect class="c-head" x="-8" y="-20" width="4" height="2" rx="1"></rect>
-      <rect class="c-head" x="4" y="-20" width="4" height="2" rx="1"></rect>
-      <rect class="c-tail" x="-8.5" y="18.3" width="4" height="1.8" rx="0.8"></rect>
-      <rect class="c-tail" x="4.5" y="18.3" width="4" height="1.8" rx="0.8"></rect>
-    </g>
+    <!-- The script copies this for each walker. Cars are drawn in 3D by the script. -->
     <g id="tpl-walker" class="walker">
-      <ellipse class="p-shadow" cx="0.8" cy="0.3" rx="3.4" ry="1.1"></ellipse>
+      <path class="p-shadow" d="M-1.7 0 L1.7 0 L12.5 8.4 L10.6 9.4 Z"></path>
+      <line class="arm arm-a" x1="-2.3" y1="-14" x2="-2.3" y2="-8.2"></line>
       <line class="leg leg-a" x1="-0.9" y1="-7.5" x2="-0.9" y2="0"></line>
       <line class="leg leg-b" x1="0.9" y1="-7.5" x2="0.9" y2="0"></line>
-      <rect class="torso" x="-2.7" y="-15" width="5.4" height="8.6" rx="2.2"></rect>
-      <circle class="head" cx="0" cy="-17.3" r="2.35"></circle>
-      <path class="hair" d="M-2.35 -17.5 A2.35 2.35 0 0 1 2.35 -17.5 Z"></path>
+      <rect class="torso" x="-2.6" y="-15" width="5.2" height="8.4" rx="2"></rect>
+      <path class="torso-lit" d="M-2.6 -13 Q-2.6 -15 -0.6 -15 L0.4 -15 L-1.2 -6.6 L-2.6 -6.6 Z"></path>
+      <line class="arm arm-b" x1="2.3" y1="-14" x2="2.3" y2="-8.2"></line>
+      <circle class="head" cx="0" cy="-17.2" r="2.3"></circle>
+      <path class="hair" d="M-2.3 -17.3 A2.3 2.3 0 0 1 2.3 -17.3 Z"></path>
     </g>
   </defs>
 
@@ -406,12 +445,12 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
   </g>
 
   <!-- Far city across the river -->
-  <g class="haze">
+  <g class="haze" filter="url(#far-blur)">
     {skyline.map((s) => <rect x={s.x} y={214 - s.h} width={s.w} height={s.h + 20} />)}
     <rect x="124" y="160" width="5" height="54"></rect>
     <path d="M123 161 L126.5 146 L130 161 Z"></path>
   </g>
-  <path class="haze-win" d={skyDots.join('')}></path>
+  <path class="haze-win" d={skyDots.join('')} filter="url(#far-blur)"></path>
 
   <!-- Roofs and church towers behind the street -->
   <g class="backs">
@@ -432,7 +471,7 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
   </g>
 
   <!-- Trees on the far bank -->
-  <g class="far-trees">
+  <g class="far-trees" filter="url(#far-blur)">
     <rect x="0" y="230" width="372" height="30"></rect>
     {farTrees.map((t) => <circle cx={t.x} cy={t.y} r={t.r} />)}
   </g>
@@ -477,8 +516,8 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     <polygon class="grass" points={band(0.165, 0.2907)}></polygon>
     <polygon class="road" points={band(0.2907, 0.907)}></polygon>
     {trees.map((t) => <polygon class="cast" points={t.shadow} />)}
-    <polygon class="rail" points={band(0.5605, 0.5635)}></polygon>
-    <polygon class="rail" points={band(0.5865, 0.5895)}></polygon>
+    <polygon class="rail" points={band(0.5485, 0.5515)}></polygon>
+    <polygon class="rail" points={band(0.5985, 0.6015)}></polygon>
     {dashes.map((d) => <polygon class="mark" points={d} />)}
     {zebra.map((z) => <polygon class="mark zebra" points={z} />)}
     <polygon class="curb" points={band(0.907, 0.925)}></polygon>
@@ -495,7 +534,14 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     <polygon class="a-trim" points={quad(A, 0, 1, 0.94, 1)}></polygon>
     <polygon class="a-trim" points={quad(A, 0, 1, 0.255, 0.27)}></polygon>
     {aWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+    {aWindows.map((w) => <polygon class="recess" points={w.recess} />)}
+    {aWindows.map((w) => <polygon class="sill" points={w.sill} />)}
     {aPediments.map((p) => <polygon class="a-trim" points={p} />)}
+    <polygon class="ao" points={quad(A, 0, 1, 0.905, 0.94)}></polygon>
+    <polygon class="ao" points={quad(A, 0, 1, 0.235, 0.255)}></polygon>
+    <polygon class="sunlit" points={quad(A, 0, 1, 0.3, 1)}></polygon>
+    <polygon class="shade" points={quad(A, 0, 1, 0, 0.42)}></polygon>
+    <polygon class="uplit" points={quad(A, 0, 1, 0, 0.8)}></polygon>
     <polygon class="a-light" points="414,191.3 414,178 462,180 462,197.6"></polygon>
     <path class="a-trim" d="M414 178 L438 171 L462 180 Z"></path>
     <path class="statue" d="M415 178 v-5 h1.6 v5 Z M461 180 v-5 h1.6 v5 Z M437 171 v-5.5 h1.8 v5.5 Z"></path>
@@ -531,6 +577,11 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     <polygon class="b-trim" points={quad(B, 0, 1, 0.93, 1)}></polygon>
     {bFrames.map((f) => <polygon class="b-trim" points={f} />)}
     {bWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+    {bWindows.map((w) => <polygon class="recess" points={w.recess} />)}
+    {bWindows.map((w) => <polygon class="sill" points={w.sill} />)}
+    {[0.23, 0.44, 0.64, 0.82, 0.915].map((v) => <polygon class="ao" points={quad(B, 0, 1, v - 0.018, v)} />)}
+    <polygon class="sunlit" points={quad(B, 0, 1, 0.3, 1)}></polygon>
+    <polygon class="shade" points={quad(B, 0, 1, 0, 0.42)}></polygon>
   </g>
 
   <!-- Red building -->
@@ -547,6 +598,9 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     <polygon class="c-trim" points={quad(C, 0, 1, 0.205, 0.225)}></polygon>
     {cFrames.map((f) => <polygon class="c-trim" points={f} />)}
     {cWindows.map((w) => <polygon class={w.cls} points={w.p} />)}
+    {cWindows.map((w) => <polygon class="recess" points={w.recess} />)}
+    {cWindows.map((w) => <polygon class="sill" points={w.sill} />)}
+    {[0.19, 0.76, 0.95].map((v) => <polygon class="ao" points={quad(C, 0, 1, v - 0.016, v)} />)}
     {
       cArches.map((a) => (
         <g>
@@ -555,6 +609,8 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
         </g>
       ))
     }
+    <polygon class="sunlit" points={quad(C, 0, 1, 0.3, 1)}></polygon>
+    <polygon class="shade" points={quad(C, 0, 1, 0, 0.42)}></polygon>
   </g>
 
   <!-- Pools of lamplight (night only) -->
@@ -586,19 +642,48 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
       <g class="tree">
         <polygon class="trunk" points={t.trunk} />
         <g class="canopy" style={`transform-origin:${t.origin};animation-delay:${t.delay}s`}>
-          {t.circles.map((c) => (
-            <circle class="rim" cx={c.x - t.rim} cy={c.y - t.rim} r={c.r} />
+          {t.rim.map((c) => (
+            <circle class="rim" cx={c.x} cy={c.y} r={c.r} />
           ))}
-          {t.circles.map((c) => (
+          {t.shade.map((c) => (
+            <circle class="leaf-shade" cx={c.x} cy={c.y} r={c.r} />
+          ))}
+          <path class="branch" d={t.branches} style={`stroke-width:${t.branchWidth}`} />
+          {t.leaf.map((c) => (
             <circle class="leaf" cx={c.x} cy={c.y} r={c.r} />
           ))}
-          {t.circles.slice(3, 6).map((c) => (
-            <circle class="leaf-light" cx={c.x - c.r * 0.25} cy={c.y - c.r * 0.3} r={c.r * 0.55} />
+          {t.light.map((c) => (
+            <circle class="leaf-light" cx={c.x} cy={c.y} r={c.r} />
           ))}
         </g>
       </g>
     ))
   }
+
+  <!-- A few birds crossing the sky -->
+  <g class="birds">
+    {
+      [
+        { y: 92, d: 0, t: 46, s: 1 },
+        { y: 104, d: -3, t: 46, s: 0.8 },
+        { y: 60, d: -22, t: 58, s: 0.7 },
+      ].map((b) => (
+        <g class="bird-path" style={`animation-duration:${b.t}s;animation-delay:${b.d}s`}>
+          <g transform={`translate(0 ${b.y}) scale(${b.s})`}>
+            <path class="bird" style={`animation-delay:${b.d / 7}s`} d="M-5 0 Q-2.5 -2.6 0 0 Q2.5 -2.6 5 0 Q2.5 -1.2 0 0.8 Q-2.5 -1.2 -5 0 Z" />
+          </g>
+        </g>
+      ))
+    }
+  </g>
+
+  <!-- Low sun: haze and faint shafts of light over everything -->
+  <g class="sunlight" pointer-events="none">
+    <rect width="840" height="600" fill="url(#bloom)"></rect>
+    <path class="shaft" d="M230 140 L560 600 L660 600 Z"></path>
+    <path class="shaft s2" d="M230 140 L380 600 L430 600 Z"></path>
+    <path class="shaft s3" d="M230 140 L780 600 L840 600 L840 560 Z"></path>
+  </g>
 
   <rect width="840" height="600" fill="url(#vignette)" pointer-events="none"></rect>
 </svg>
@@ -658,12 +743,27 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     --spire: #5d4a46;
     --leaf: #3e5133;
     --leaf-light: #5b6f3e;
-    --rim: #f0c46e;
+    --rim: #d9b46a;
     --trunk: #4a3a2c;
     --lamp: #3b3836;
     --lamp-op: 0;
     --beam-op: 0;
     --cast-op: 0.16;
+    --win-top: #caa68a;
+    --recess: #5a4636;
+    --recess-op: 0.55;
+    --sill: #fff3dc;
+    --sill-op: 0.6;
+    --ao-op: 0.14;
+    --sunlit-op: 0.55;
+    --shade-op: 0.5;
+    --uplit-op: 0;
+    --leaf-shade: #2f3f28;
+    --branch: #3b2e22;
+    --bird: #5b4a44;
+    --sunlight-op: 1;
+    --glass-side: #33404c;
+    --glass-shield: #8a8f96;
     display: block;
     width: 100%;
     height: 100%;
@@ -728,6 +828,21 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     --lamp-op: 1;
     --beam-op: 0.6;
     --cast-op: 0;
+    --win-top: #26252f;
+    --recess: #0d0c12;
+    --recess-op: 0.5;
+    --sill: #d9b77a;
+    --sill-op: 0.35;
+    --ao-op: 0.3;
+    --sunlit-op: 0;
+    --shade-op: 0;
+    --uplit-op: 1;
+    --leaf-shade: #0e1712;
+    --branch: #120f0c;
+    --bird: #0f1220;
+    --sunlight-op: 0;
+    --glass-side: #12151c;
+    --glass-shield: #1b2029;
   }
 
   .scene * {
@@ -890,7 +1005,31 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     fill: none;
   }
   .scene .w {
-    fill: var(--win);
+    fill: url(#win-glass);
+  }
+  .scene .recess {
+    fill: var(--recess);
+    opacity: var(--recess-op);
+  }
+  .scene .sill {
+    fill: var(--sill);
+    opacity: var(--sill-op);
+  }
+  .scene .ao {
+    fill: #1e120a;
+    opacity: var(--ao-op);
+  }
+  .scene .sunlit {
+    fill: url(#facade-sun);
+    opacity: var(--sunlit-op);
+  }
+  .scene .shade {
+    fill: url(#facade-shade);
+    opacity: var(--shade-op);
+  }
+  .scene .uplit {
+    fill: url(#uplight);
+    opacity: var(--uplit-op);
   }
   .scene .gl {
     fill: var(--win-gl);
@@ -956,62 +1095,138 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
   }
   .scene .rim {
     fill: var(--rim);
+    opacity: 0.7;
   }
   .scene .leaf {
     fill: var(--leaf);
   }
+  .scene .leaf-shade {
+    fill: var(--leaf-shade);
+  }
   .scene .leaf-light {
     fill: var(--leaf-light);
-    opacity: 0.8;
+    opacity: 0.75;
+  }
+  .scene .branch {
+    stroke: var(--branch);
+    fill: none;
+    stroke-linecap: round;
+  }
+
+  /* Birds glide across, flapping now and then. */
+  .scene .bird-path {
+    animation: scene-fly 46s linear infinite;
+  }
+  .scene .bird {
+    fill: var(--bird);
+    transform-box: fill-box;
+    transform-origin: 50% 70%;
+    animation: scene-flap 2.6s ease-in-out infinite;
+  }
+
+  .scene .sunlight {
+    opacity: var(--sunlight-op);
+  }
+  .scene .shaft {
+    fill: url(#shaft);
+    opacity: 0.16;
+    transform-origin: 230px 140px;
+    animation: scene-shaft 11s ease-in-out infinite alternate;
+  }
+  .scene .shaft.s2 {
+    opacity: 0.1;
+    animation-delay: -4s;
+  }
+  .scene .shaft.s3 {
+    opacity: 0.08;
+    animation-delay: -7s;
   }
   .scene .canopy {
     animation: scene-sway 7s ease-in-out infinite alternate;
   }
 
-  /* Cars */
+  /* Cars, vans and trams: the script draws each face in 3D. The low sun
+     lights the roofs and the sides facing the river; the ends facing us
+     are in shade. */
   .scene .car {
     transition: none;
   }
-  .scene .c-body {
-    fill: var(--c, #ddd);
+  .scene .car * {
+    transition: none;
   }
-  .scene .c-shine {
-    fill: #fff;
-    opacity: 0.16;
+  .scene .k-top {
+    fill: var(--top);
   }
-  .scene .c-shadow {
-    fill: #000;
-    opacity: 0.2;
+  .scene .k-side {
+    fill: var(--side);
   }
-  .scene .c-glass {
-    fill: #27313c;
+  .scene .k-near {
+    fill: var(--near);
   }
-  .scene .c-head {
+  :root[data-theme='dark'] .scene .k-top {
+    fill: color-mix(in srgb, var(--top) 30%, #0b0d16);
+  }
+  :root[data-theme='dark'] .scene .k-side {
+    fill: color-mix(in srgb, var(--side) 26%, #0b0d16);
+  }
+  :root[data-theme='dark'] .scene .k-near {
+    fill: color-mix(in srgb, var(--near) 22%, #0b0d16);
+  }
+  .scene .k-glass {
+    fill: var(--glass-side);
+  }
+  .scene .k-shield {
+    fill: var(--glass-shield);
+  }
+  .scene .k-wheel {
+    fill: #141417;
+  }
+  .scene .k-shadow {
+    fill: #1d1209;
+    opacity: calc(var(--cast-op) * 1.7);
+  }
+  .scene .k-head {
     fill: #fff4cf;
   }
-  .scene .c-tail {
-    fill: #b3261e;
+  .scene .k-tail {
+    fill: #a8261e;
   }
-  .scene .beam {
-    fill: url(#beam);
-    opacity: var(--beam-op);
+  :root[data-theme='dark'] .scene .k-tail {
+    fill: #ff4234;
+  }
+  .scene .k-beam {
+    fill: #fff0bf;
+    opacity: calc(var(--beam-op) * 0.32);
   }
 
   /* People */
-  .scene .walker .leg {
-    stroke: var(--pants, #333);
-    stroke-width: 1.5;
+  .scene .walker .leg,
+  .scene .walker .arm {
     stroke-linecap: round;
     transform-box: fill-box;
     transform-origin: 50% 0;
     animation: scene-step 0.7s ease-in-out infinite alternate;
     animation-delay: var(--step, 0s);
   }
-  .scene .walker .leg-b {
+  .scene .walker .leg {
+    stroke: var(--pants, #333);
+    stroke-width: 1.5;
+  }
+  .scene .walker .arm {
+    stroke: var(--shirt, #888);
+    stroke-width: 1.25;
+    animation-name: scene-swing;
+  }
+  .scene .walker .leg-b,
+  .scene .walker .arm-a {
     animation-delay: calc(var(--step, 0s) - 0.7s);
   }
   .scene .torso {
     fill: var(--shirt, #888);
+  }
+  .scene .torso-lit {
+    fill: #fff3dc;
+    opacity: calc(var(--sun-op) * 0.28);
   }
   .scene .head {
     fill: var(--skin, #e0b48e);
@@ -1020,8 +1235,8 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     fill: var(--hair, #2a1d14);
   }
   .scene .p-shadow {
-    fill: #000;
-    opacity: 0.18;
+    fill: #1d1209;
+    opacity: calc(var(--cast-op) * 1.5);
   }
 
   @keyframes scene-twinkle {
@@ -1068,6 +1283,45 @@ const farTrees = Array.from({ length: 26 }, (_, i) => ({
     }
     to {
       transform: rotate(-22deg);
+    }
+  }
+  @keyframes scene-swing {
+    from {
+      transform: rotate(-26deg);
+    }
+    to {
+      transform: rotate(26deg);
+    }
+  }
+  @keyframes scene-fly {
+    from {
+      transform: translateX(-40px);
+    }
+    to {
+      transform: translateX(900px);
+    }
+  }
+  @keyframes scene-flap {
+    0%,
+    40%,
+    100% {
+      transform: scaleY(1);
+    }
+    10%,
+    30% {
+      transform: scaleY(-0.6);
+    }
+    20% {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes scene-shaft {
+    from {
+      transform: rotate(-0.6deg);
+    }
+    to {
+      transform: rotate(0.8deg);
+      opacity: 0.05;
     }
   }
 

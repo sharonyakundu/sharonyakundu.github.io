@@ -1,28 +1,32 @@
 ---
 // A pull cord hanging from the top of the page. Pulling it switches the
 // room lamp: day, or night with one dim lamp above the page.
+// It hangs like a real cord: pull it straight down or off to one side,
+// and when you let go it springs back and swings until it settles.
 ---
 
-<div class="cord-wrap">
-  <button class="cord" type="button" role="switch" aria-checked="false" aria-label="Lamp cord: night theme" data-cord>
-    <span class="string"></span>
-    <span class="pull">
-      <span class="cap"></span>
-      <span class="bead"></span>
-      <span class="cap low"></span>
-    </span>
-  </button>
+<div class="cord-wrap" data-cord-wrap>
+  <div class="swing" data-cord-swing>
+    <button class="cord" type="button" role="switch" aria-checked="false" aria-label="Lamp cord: night theme" data-cord>
+      <span class="string"></span>
+      <span class="pull">
+        <span class="cap"></span>
+        <span class="bead"></span>
+        <span class="cap low"></span>
+      </span>
+    </button>
+  </div>
   <span class="hint label" data-cord-hint aria-hidden="true">Pull for night</span>
 </div>
 
 <script>
+  const wrap = document.querySelector<HTMLElement>('[data-cord-wrap]');
   const cord = document.querySelector<HTMLButtonElement>('[data-cord]');
-  const wrap = cord?.parentElement;
   const hint = document.querySelector<HTMLElement>('[data-cord-hint]');
   const root = document.documentElement;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  if (cord) {
+  if (wrap && cord) {
     const paint = () => {
       const night = root.dataset.theme === 'dark';
       cord.setAttribute('aria-checked', String(night));
@@ -38,33 +42,51 @@
       paint();
     };
 
-    // The cord is a spring: pulling stretches it, letting go makes it bounce back.
-    // TODO(human): choose how the cord feels when it springs back.
-    const STIFFNESS = 520; // how hard it pulls back towards rest
-    const DAMPING = 16; // how quickly the bouncing dies away
+    // Two motions at once: the cord stretches along its length (a spring)
+    // and swings from its top (a pendulum).
+    const STIFFNESS = 520; // how hard the stretch pulls back
+    const DAMPING = 16; // how quickly the stretch stops bouncing
+    const SWING = 46; // how fast it swings: about one swing per second
+    const SWING_DAMPING = 2.1; // how quickly the swinging dies away
+    const MAX_ANGLE = 1.05; // about 60 degrees either side
 
-    let stretch = 0;
+    let stretch = 0; // pixels
     let speed = 0;
+    let angle = 0; // radians, positive: the knob is to the right
+    let turn = 0; // angular speed
     let raf = 0;
     let last = 0;
-    const show = () => wrap?.style.setProperty('--stretch', `${stretch.toFixed(2)}px`);
+
+    const length = () => parseFloat(getComputedStyle(cord).getPropertyValue('--len')) || 140;
+
+    const show = () => {
+      wrap.style.setProperty('--stretch', `${stretch.toFixed(2)}px`);
+      wrap.style.setProperty('--angle', `${(-angle).toFixed(4)}rad`);
+      // the label stays under the knob
+      const reach = length() + stretch;
+      wrap.style.setProperty('--hx', `${(Math.sin(angle) * reach).toFixed(1)}px`);
+      wrap.style.setProperty('--hy', `${(Math.cos(angle) * reach - length()).toFixed(1)}px`);
+    };
 
     const settle = (now: number) => {
       const dt = last ? Math.min(0.032, (now - last) / 1000) : 0.016;
       last = now;
       speed += (-STIFFNESS * stretch - DAMPING * speed) * dt; // spring force and friction
       stretch += speed * dt;
+      turn += (-SWING * Math.sin(angle) - SWING_DAMPING * turn) * dt; // gravity and air
+      angle += turn * dt;
       show();
-      if (Math.abs(stretch) > 0.05 || Math.abs(speed) > 1) raf = requestAnimationFrame(settle);
+      const moving = Math.abs(stretch) > 0.05 || Math.abs(speed) > 1 || Math.abs(angle) > 0.002 || Math.abs(turn) > 0.01;
+      if (moving) raf = requestAnimationFrame(settle);
       else {
-        stretch = 0;
+        stretch = speed = angle = turn = 0;
         show();
       }
     };
     const release = () => {
       cancelAnimationFrame(raf);
       if (reduced) {
-        stretch = 0;
+        stretch = speed = angle = turn = 0;
         show();
         return;
       }
@@ -72,29 +94,55 @@
       raf = requestAnimationFrame(settle);
     };
 
-    let drag: { y: number; moved: boolean } | null = null;
+    // Dragging: the knob follows the pointer, but only below the top of the cord.
+    type Drag = { ax: number; ay: number; grab: number; moved: boolean; lastAngle: number; lastTime: number };
+    let drag: Drag | null = null;
     let skipClick = false;
 
     cord.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      drag = { y: e.clientY, moved: false };
+      const box = wrap.getBoundingClientRect();
+      const ax = box.left + box.width / 2;
+      const ay = box.top;
+      drag = {
+        ax,
+        ay,
+        grab: Math.max(20, Math.hypot(e.clientX - ax, e.clientY - ay) - stretch),
+        moved: false,
+        lastAngle: angle,
+        lastTime: performance.now(),
+      };
       cord.setPointerCapture(e.pointerId);
       cancelAnimationFrame(raf);
+      turn = 0;
+      speed = 0;
     });
     cord.addEventListener('pointermove', (e) => {
       if (!drag) return;
-      const pulled = Math.max(0, e.clientY - drag.y);
-      if (pulled > 3) drag.moved = true;
-      stretch = 70 * (1 - Math.exp(-pulled / 70)); // gets harder the further you pull
-      speed = 0;
+      const dx = e.clientX - drag.ax;
+      const dy = Math.max(4, e.clientY - drag.ay);
+      const dist = Math.hypot(dx, dy);
+      if (Math.abs(dist - drag.grab) > 3 || Math.abs(dx) > 3) drag.moved = true;
+      const pulled = Math.max(0, dist - drag.grab);
+      stretch = 90 * (1 - Math.exp(-pulled / 90)); // gets harder the further you pull
+      angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, Math.atan2(dx, dy)));
+      // remember how fast it is swinging, to carry on after letting go
+      const now = performance.now();
+      const dt = (now - drag.lastTime) / 1000;
+      if (dt > 0.008) {
+        turn = (angle - drag.lastAngle) / dt;
+        drag.lastAngle = angle;
+        drag.lastTime = now;
+      }
       show();
     });
     const letGo = () => {
       if (!drag) return;
       if (drag.moved) {
         skipClick = true;
-        if (stretch > 16) toggle();
+        if (stretch > 18) toggle();
       }
+      turn = Math.max(-4, Math.min(4, turn));
       drag = null;
       release();
     };
@@ -110,29 +158,48 @@
       toggle();
       cancelAnimationFrame(raf);
       speed = 260;
+      turn = (Math.random() < 0.5 ? -1 : 1) * 0.5;
       release();
     });
 
     paint();
+    show();
+    // When the page opens, the cord is still swaying a little.
+    if (!reduced) {
+      angle = 0.07;
+      release();
+    }
   }
 </script>
 
 <style>
   .cord-wrap {
+    --len: 140px;
     --stretch: 0px;
+    --angle: 0rad;
+    --hx: 0px;
+    --hy: 0px;
     position: absolute;
     top: 0;
-    right: clamp(12px, 4vw, 40px);
-    display: grid;
-    justify-items: center;
+    /* beside the menu on wide screens, near the edge on narrow ones */
+    left: min(calc(50% + clamp(150px, 30vw, 380px)), calc(100% - 44px));
+    width: 36px;
+    transform: translateX(-50%);
     z-index: 6;
   }
 
+  .swing {
+    transform-origin: 50% 0;
+    transform: rotate(var(--angle));
+    /* a soft shadow on the wall behind the cord */
+    filter: drop-shadow(5px 8px 3px rgba(30, 15, 0, 0.22));
+  }
+
   .cord {
-    --len: 104px;
     position: relative;
+    display: block;
     width: 36px;
-    height: calc(var(--len) + 34px);
+    height: calc(var(--len) + var(--stretch) + 34px);
     padding: 0;
     border: 0;
     background: none;
@@ -164,7 +231,6 @@
     display: grid;
     justify-items: center;
     transform: translateX(-50%);
-    filter: drop-shadow(0 4px 4px rgba(30, 15, 0, 0.35));
   }
 
   .bead {
@@ -201,18 +267,22 @@
     outline-offset: 3px;
   }
 
+  /* The label sits beside the knob and follows it. */
   .hint {
-    transform: translateY(var(--stretch));
-    width: 5.5em;
-    margin-top: 2px;
+    position: absolute;
+    top: calc(var(--len) + 4px);
+    left: calc(50% + 14px);
+    width: 6.8em;
     font-size: 0.6rem;
     line-height: 1.4;
-    text-align: center;
+    text-align: left;
+    transform: translate(var(--hx), var(--hy));
+    pointer-events: none;
   }
 
   @media (max-width: 600px) {
-    .cord {
-      --len: 46px;
+    .cord-wrap {
+      --len: 62px;
     }
     .hint {
       display: none;

@@ -1,0 +1,1074 @@
+---
+// A lavender phone seen from the front. Locked while idle; point at it
+// (or tap it) and it unlocks, opens Instagram and plays the reels.
+// Arrows beside the phone switch between reels.
+import type { Reel } from '../data/work';
+
+interface Props {
+  reels: Reel[];
+}
+const { reels } = Astro.props;
+const colours = ['#7b5cff', '#ff6a3d', '#1fa880', '#e0a93a'];
+const count = reels.filter((r) => r.link || r.video).length;
+---
+
+<div class="stage" data-phone-stage data-state="locked">
+  <button class="arrow prev" type="button" data-step="-1" aria-label="Previous reel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"></path></svg>
+  </button>
+
+  <div class="phone" data-phone>
+    <span class="key action" aria-hidden="true"></span>
+    <span class="key vol-up" aria-hidden="true"></span>
+    <span class="key vol-down" aria-hidden="true"></span>
+    <button class="key side" type="button" data-lock-key aria-label="Lock the phone" tabindex="-1"></button>
+    <span class="key camera" aria-hidden="true"></span>
+
+    <div class="bezel">
+      <div class="screen">
+        <!-- The reels app -->
+        <div class="app" data-app>
+          <div class="feed" data-feed>
+            {
+              reels.map((reel, i) => (
+                <article
+                  class="reel"
+                  data-reel
+                  data-link={reel.link}
+                  data-video={reel.video ?? ''}
+                  data-poster={reel.poster ?? ''}
+                  data-title={reel.title}
+                  style={`--accent:${colours[i % colours.length]}`}
+                >
+                  <div class="media" data-media>
+                    <div class="placeholder">
+                      <span class="blob b1" />
+                      <span class="blob b2" />
+                      <span class="ph-text">
+                        <span class="ph-tag">{reel.link || reel.video ? 'Loading' : `Reel ${i + 1}`}</span>
+                        <span class="ph-title">{reel.title}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="caption">
+                    <p class="who">
+                      <span class="avatar">SK</span>
+                      Sharonya Kundu
+                    </p>
+                    <p class="title">{reel.title}</p>
+                    <p class="audio">♪ Original audio</p>
+                  </div>
+                </article>
+              ))
+            }
+          </div>
+          <div class="app-top" aria-hidden="true">
+            <span>Reels</span>
+            <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="4"></rect><circle cx="12" cy="13" r="3.6"></circle><path d="M8.5 6 10 3.8h4L15.5 6"></path></svg>
+          </div>
+          <ul class="actions" aria-hidden="true">
+            <li><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg></li>
+            <li><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3.2-6.4L20 4l-1 4.2A8 8 0 0 1 20 12Z"></path></svg></li>
+            <li><svg viewBox="0 0 24 24"><path d="M21 4 3 11l7 2.5L12.5 21 21 4Zm-11 9.5L21 4"></path></svg></li>
+            <li><svg viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="12" cy="18.5" r="1.3"></circle></svg></li>
+          </ul>
+          <button class="sound" type="button" data-sound aria-pressed="false" aria-label="Sound on">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"></path><path class="off" d="m16 9 5 6m0-6-5 6"></path><path class="on" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"></path></svg>
+          </button>
+          <a class="open" data-open href="#" target="_blank" rel="noopener">Open in Instagram ↗</a>
+          <div class="progress" aria-hidden="true"><i data-progress></i></div>
+        </div>
+
+        <!-- Opening the app: its icon grows to fill the screen -->
+        <div class="launch" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"></rect><circle cx="12" cy="12" r="4.2"></circle><circle class="dot" cx="17.3" cy="6.7" r="1.1"></circle></svg>
+        </div>
+
+        <!-- The lock screen -->
+        <button class="lock" type="button" data-unlock aria-label="Unlock the phone to watch my work">
+          <span class="wall" aria-hidden="true"></span>
+          <span class="lock-ui" aria-hidden="true">
+            <svg class="padlock" viewBox="0 0 24 24"><path class="shackle" d="M8 11V8a4 4 0 0 1 8 0v3"></path><rect x="5.5" y="11" width="13" height="10" rx="2.4"></rect></svg>
+            <span class="date" data-phone-date>Today</span>
+            <span class="time" data-phone-time>12:00</span>
+            <span class="note">
+              <span class="note-icon"></span>
+              <span class="note-text">
+                <b>Instagram</b>
+                <span>{count > 0 ? `My work: ${count} ${count === 1 ? 'reel' : 'reels'}` : 'My work: reels coming soon'}</span>
+              </span>
+              <span class="note-time">now</span>
+            </span>
+            <span class="quick">
+              <i><svg viewBox="0 0 24 24"><path d="M9 3h6l-1 6h-4zM10 9h4v11a2 2 0 0 1-4 0z"></path></svg></i>
+              <i><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.3"></circle><path d="M8.5 7 10 4.5h4L15.5 7"></path></svg></i>
+            </span>
+            <span class="home-bar"></span>
+          </span>
+        </button>
+
+        <span class="island" aria-hidden="true"><i></i></span>
+        <span class="glare" aria-hidden="true"></span>
+      </div>
+    </div>
+  </div>
+
+  <button class="arrow next" type="button" data-step="1" aria-label="Next reel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+  </button>
+
+  <p class="hint label" data-phone-hint>Point at the phone to unlock it</p>
+  <p class="sr-only" aria-live="polite" data-phone-status></p>
+</div>
+
+{
+  count > 0 && (
+    <ul class="sr-only">
+      {reels
+        .filter((r) => r.link)
+        .map((r) => (
+          <li>
+            <a href={r.link}>{r.title} on Instagram</a>
+          </li>
+        ))}
+    </ul>
+  )
+}
+
+<script>
+  import { site } from '../data/site';
+
+  const stage = document.querySelector<HTMLElement>('[data-phone-stage]');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (stage) setup(stage);
+
+  function setup(stage: HTMLElement) {
+    const phone = stage.querySelector<HTMLElement>('[data-phone]')!;
+    const feed = stage.querySelector<HTMLElement>('[data-feed]')!;
+    const app = stage.querySelector<HTMLElement>('[data-app]')!;
+    const reels = [...stage.querySelectorAll<HTMLElement>('[data-reel]')];
+    const progress = stage.querySelector<HTMLElement>('[data-progress]')!;
+    const sound = stage.querySelector<HTMLButtonElement>('[data-sound]')!;
+    const openLink = stage.querySelector<HTMLAnchorElement>('[data-open]')!;
+    const hint = stage.querySelector<HTMLElement>('[data-phone-hint]')!;
+    const status = stage.querySelector<HTMLElement>('[data-phone-status]')!;
+    const timeEl = stage.querySelector<HTMLElement>('[data-phone-time]')!;
+    const dateEl = stage.querySelector<HTMLElement>('[data-phone-date]')!;
+
+    type State = 'locked' | 'unlocking' | 'open' | 'locking';
+    let state: State = 'locked';
+    let index = 0;
+    let timer = 0;
+    let leaveTimer = 0;
+    let raf = 0;
+    let muted = true;
+
+    const setState = (next: State) => {
+      state = next;
+      stage.dataset.state = next;
+    };
+
+    // ---- The lock screen shows the time in Wrocław.
+    const clock = () => {
+      const now = new Date();
+      timeEl.textContent = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: site.timeZone }).format(now);
+      dateEl.textContent = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: site.timeZone }).format(now);
+    };
+    clock();
+    setInterval(clock, 20000);
+
+    // ---- Which reel comes next when an arrow is pressed.
+    // TODO(human): decide what the arrows do at either end of the list.
+    const nextIndex = (current: number, step: number, total: number): number | null => {
+      return (current + step + total) % total;
+    };
+
+    // ---- Media: a video file plays by itself; otherwise Instagram's player.
+    const reelCode = (link: string) => link.match(/instagram\.com\/(?:reel|reels|p)\/([^/?#]+)/)?.[1] ?? '';
+
+    const load = (reel: HTMLElement) => {
+      if (reel.dataset.loaded) return;
+      const media = reel.querySelector<HTMLElement>('[data-media]')!;
+      const { video, poster, link, title } = reel.dataset;
+      if (video) {
+        const el = document.createElement('video');
+        el.src = video;
+        if (poster) el.poster = poster;
+        el.muted = true;
+        el.loop = true;
+        el.playsInline = true;
+        el.preload = 'auto';
+        media.replaceChildren(el);
+      } else if (link && reelCode(link)) {
+        const frame = document.createElement('iframe');
+        frame.src = `https://www.instagram.com/reel/${encodeURIComponent(reelCode(link))}/embed/`;
+        frame.title = title ?? 'Instagram reel';
+        frame.loading = 'lazy';
+        frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+        media.replaceChildren(frame);
+        reel.classList.add('embedded');
+      }
+      reel.dataset.loaded = 'true';
+    };
+
+    const videoOf = (reel?: HTMLElement) => reel?.querySelector('video') ?? null;
+
+    const track = () => {
+      const video = videoOf(reels[index]);
+      if (video && video.duration) progress.style.transform = `scaleX(${video.currentTime / video.duration})`;
+      raf = requestAnimationFrame(track);
+    };
+
+    const show = () => {
+      const reel = reels[index];
+      feed.style.setProperty('--i', String(index));
+      load(reel);
+      // the next one loads quietly in the background
+      if (reels[index + 1]) load(reels[index + 1]);
+      const video = videoOf(reel);
+      progress.parentElement!.classList.toggle('looping', !video);
+      progress.style.transform = video ? 'scaleX(0)' : '';
+      sound.hidden = !video;
+      if (video) {
+        video.muted = muted;
+        video.play().catch(() => {});
+      }
+      app.classList.toggle('embed', reel.classList.contains('embedded'));
+      const link = reel.dataset.link;
+      openLink.hidden = !link;
+      if (link) openLink.href = link;
+      status.textContent = `Reel ${index + 1} of ${reels.length}: ${reel.dataset.title}`;
+    };
+
+    const pauseAll = () => reels.forEach((r) => videoOf(r)?.pause());
+
+    const unlock = () => {
+      if (state === 'open' || state === 'unlocking') return;
+      clearTimeout(timer);
+      setState('unlocking');
+      hint.textContent = touch ? 'Tap outside the phone to lock it' : 'Use the arrows to switch reels';
+      load(reels[index]);
+      timer = window.setTimeout(
+        () => {
+          setState('open');
+          show();
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(track);
+        },
+        reduced ? 0 : 900,
+      );
+    };
+
+    const lock = () => {
+      if (state === 'locked' || state === 'locking') return;
+      clearTimeout(timer);
+      pauseAll();
+      cancelAnimationFrame(raf);
+      setState('locking');
+      hint.textContent = touch ? 'Tap the phone to unlock it' : 'Point at the phone to unlock it';
+      status.textContent = 'Phone locked';
+      timer = window.setTimeout(() => setState('locked'), reduced ? 0 : 420);
+    };
+
+    const go = (step: number) => {
+      if (state !== 'open') return;
+      const next = nextIndex(index, step, reels.length);
+      if (next === null || next === index) return;
+      pauseAll();
+      index = next;
+      show();
+    };
+
+    // ---- Mouse: unlock while pointing at the phone or its arrows.
+    let touch = false;
+    stage.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      touch = false;
+      clearTimeout(leaveTimer);
+      unlock();
+    });
+    stage.addEventListener('pointerleave', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      leaveTimer = window.setTimeout(lock, 300);
+    });
+
+    // ---- Touch and keyboard: tap or press to unlock, tap outside to lock.
+    stage.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') {
+        touch = true;
+        stage.classList.add('touch');
+      }
+    });
+    stage.querySelector('[data-unlock]')!.addEventListener('click', unlock);
+    stage.querySelector('[data-lock-key]')!.addEventListener('click', lock);
+    document.addEventListener('pointerdown', (e) => {
+      if (state === 'open' && !stage.contains(e.target as Node)) lock();
+    });
+    stage.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') lock();
+      if (e.key === 'ArrowRight') go(1);
+      if (e.key === 'ArrowLeft') go(-1);
+    });
+
+    stage.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((arrow) => {
+      arrow.addEventListener('click', () => go(Number(arrow.dataset.step)));
+    });
+
+    sound.addEventListener('click', () => {
+      muted = !muted;
+      const video = videoOf(reels[index]);
+      if (video) video.muted = muted;
+      sound.setAttribute('aria-pressed', String(!muted));
+      sound.setAttribute('aria-label', muted ? 'Sound on' : 'Sound off');
+    });
+
+    // ---- The glass catches the light as the pointer moves over it.
+    phone.addEventListener('pointermove', (e) => {
+      const box = phone.getBoundingClientRect();
+      phone.style.setProperty('--gx', `${(((e.clientX - box.left) / box.width) * 100).toFixed(1)}%`);
+      phone.style.setProperty('--gy', `${(((e.clientY - box.top) / box.height) * 100).toFixed(1)}%`);
+    });
+
+    if (matchMedia('(hover: none)').matches) hint.textContent = 'Tap the phone to unlock it';
+  }
+</script>
+
+<style>
+  .stage {
+    --lav: #cbbce9;
+    --lav-hi: #efe8fb;
+    --lav-lo: #9d8bc6;
+    position: relative;
+    display: grid;
+    grid-template-columns: 52px auto 52px;
+    grid-template-areas:
+      'prev phone next'
+      'hint hint hint';
+    align-items: center;
+    justify-content: center;
+    gap: 14px clamp(10px, 3vw, 28px);
+  }
+
+  /* ---------- the phone body ---------- */
+  .phone {
+    grid-area: phone;
+    position: relative;
+    width: min(292px, 64vw);
+    aspect-ratio: 71.5 / 149.6;
+    padding: 2.2%;
+    border-radius: 17% / 8.1%;
+    /* lavender aluminium band, brighter where it curves towards the light */
+    background:
+      linear-gradient(90deg, var(--lav-lo), var(--lav-hi) 6%, var(--lav) 16%, var(--lav) 84%, var(--lav-hi) 94%, var(--lav-lo)),
+      var(--lav);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+      inset 0 2px 1px rgba(255, 255, 255, 0.7),
+      inset 0 -2px 2px rgba(70, 50, 110, 0.35),
+      0 30px 40px -24px rgba(40, 20, 70, 0.55),
+      0 10px 18px -8px rgba(40, 20, 70, 0.35);
+    transition:
+      transform 0.5s var(--ease),
+      box-shadow 0.5s var(--ease);
+    container-type: inline-size;
+  }
+
+  .stage:not([data-state='locked']) .phone {
+    transform: translateY(-6px);
+  }
+
+  /* Side buttons, standing out of the band. */
+  .key {
+    position: absolute;
+    width: 1.6%;
+    padding: 0;
+    border: 0;
+    background: linear-gradient(90deg, var(--lav-lo), var(--lav-hi) 50%, var(--lav));
+    box-shadow: 0 1px 2px rgba(40, 20, 70, 0.35);
+  }
+  .action,
+  .vol-up,
+  .vol-down {
+    left: -1.1%;
+    border-radius: 2px 0 0 2px;
+  }
+  .side,
+  .camera {
+    right: -1.1%;
+    border-radius: 0 2px 2px 0;
+  }
+  .action {
+    top: 17%;
+    height: 4.2%;
+  }
+  .vol-up {
+    top: 25%;
+    height: 7.8%;
+  }
+  .vol-down {
+    top: 35%;
+    height: 7.8%;
+  }
+  .side {
+    top: 27%;
+    height: 12%;
+    cursor: pointer;
+  }
+  .camera {
+    top: 57%;
+    height: 6.5%;
+    background: linear-gradient(90deg, #6c6380, #b7aed0 50%, #857a9e);
+  }
+
+  .bezel {
+    height: 100%;
+    padding: 3.2%;
+    border-radius: 15.4% / 7.4%;
+    background: #060607;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  .screen {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 12.6% / 5.9%;
+    background: #000;
+    container-type: inline-size;
+    isolation: isolate;
+  }
+
+  .island {
+    position: absolute;
+    z-index: 8;
+    top: 1.8%;
+    left: 50%;
+    width: 34%;
+    height: 3.9%;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: #000;
+  }
+  .island i {
+    position: absolute;
+    right: 9%;
+    top: 50%;
+    width: 3.2cqw;
+    height: 3.2cqw;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #33415e, #0b1120 60%);
+  }
+
+  /* Glass glare that moves with the pointer. */
+  .glare {
+    position: absolute;
+    z-index: 9;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(70% 45% at var(--gx, 30%) var(--gy, 10%), rgba(255, 255, 255, 0.16), transparent 70%),
+      linear-gradient(118deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 28%);
+  }
+
+  /* ---------- lock screen ---------- */
+  .lock {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    padding: 0;
+    border: 0;
+    color: #fff;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+    transition:
+      opacity 0.35s ease,
+      visibility 0s 0s;
+  }
+  .lock:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: -3px;
+  }
+
+  .wall {
+    position: absolute;
+    inset: -4%;
+    background:
+      radial-gradient(70% 45% at 20% 12%, #f7dcff 0, transparent 60%),
+      radial-gradient(60% 40% at 92% 38%, #b48cff, transparent 65%),
+      radial-gradient(80% 50% at 25% 95%, #5b3fd0, transparent 70%),
+      radial-gradient(60% 40% at 85% 85%, #ff9fb5, transparent 70%),
+      linear-gradient(#d4c0ff, #7457dc);
+    background-size: 125% 125%;
+    animation: wall-drift 18s ease-in-out infinite alternate;
+    transition:
+      transform 0.55s var(--ease),
+      filter 0.55s var(--ease),
+      opacity 0.45s ease 0.1s;
+  }
+
+  .lock-ui {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 13%;
+    transition:
+      transform 0.45s cubic-bezier(0.5, 0, 0.75, 0),
+      opacity 0.35s ease;
+  }
+
+  .padlock {
+    width: 6.5cqw;
+    height: 6.5cqw;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+  }
+  .padlock rect {
+    fill: #fff;
+    stroke: none;
+  }
+  .shackle {
+    transform-origin: 16px 11px;
+    transition: transform 0.25s var(--ease);
+  }
+
+  .date {
+    margin-top: 4cqw;
+    font-family: var(--sans);
+    font-size: 5.2cqw;
+    font-weight: 600;
+    opacity: 0.92;
+  }
+  .time {
+    font-family: var(--sans);
+    font-size: 25cqw;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 20px rgba(60, 20, 120, 0.25);
+  }
+
+  /* Frosted-glass notification. */
+  .note {
+    display: flex;
+    align-items: center;
+    gap: 3cqw;
+    width: 88%;
+    margin-top: auto;
+    margin-bottom: 6cqw;
+    padding: 3.4cqw 3.6cqw;
+    border-radius: 6cqw;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.24);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+  .note-icon {
+    flex: none;
+    width: 9cqw;
+    height: 9cqw;
+    border-radius: 2.4cqw;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 1.7cqw, #fff 1.8cqw, #fff 2.4cqw, transparent 2.5cqw),
+      linear-gradient(45deg, #feda75, #fa7e1e 30%, #d62976 60%, #962fbf 80%, #4f5bd5);
+  }
+  .note-text {
+    display: grid;
+    min-width: 0;
+    font-family: var(--sans);
+    font-size: 3.9cqw;
+    line-height: 1.3;
+  }
+  .note-text b {
+    font-weight: 600;
+  }
+  .note-time {
+    align-self: flex-start;
+    margin-left: auto;
+    font-size: 3.3cqw;
+    opacity: 0.75;
+  }
+
+  .quick {
+    display: flex;
+    justify-content: space-between;
+    width: 78%;
+    margin-bottom: 5cqw;
+  }
+  .quick i {
+    display: grid;
+    place-items: center;
+    width: 14cqw;
+    height: 14cqw;
+    border-radius: 50%;
+    background: rgba(30, 10, 60, 0.32);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .quick svg {
+    width: 6cqw;
+    height: 6cqw;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+  }
+  .home-bar {
+    width: 36%;
+    height: 1.6cqw;
+    margin-bottom: 2.6cqw;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  /* ---------- unlocking: the padlock opens, the lock screen lifts away ---------- */
+  [data-state='unlocking'] .shackle,
+  [data-state='open'] .shackle {
+    transform: translateY(-2.5px) rotate(28deg);
+  }
+  [data-state='unlocking'] .lock-ui {
+    transform: translateY(-38%);
+    opacity: 0;
+    transition-delay: 0.18s;
+  }
+  [data-state='unlocking'] .wall {
+    transform: scale(1.12);
+    filter: blur(8px);
+    opacity: 0;
+    transition-delay: 0.18s;
+  }
+  [data-state='open'] .lock {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.2s ease,
+      visibility 0s 0.2s;
+  }
+  [data-state='open'] .lock-ui,
+  [data-state='open'] .wall {
+    opacity: 0;
+  }
+
+  /* The app icon grows from the middle of the screen to fill it. */
+  .launch {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(45deg, #feda75, #fa7e1e 28%, #d62976 55%, #962fbf 78%, #4f5bd5);
+    opacity: 0;
+    transform: scale(0.18);
+    border-radius: 24%;
+    pointer-events: none;
+  }
+  .launch svg {
+    width: 34%;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1.7;
+  }
+  .launch .dot {
+    fill: #fff;
+    stroke: none;
+  }
+  [data-state='unlocking'] .launch {
+    animation: app-open 0.62s cubic-bezier(0.3, 0.7, 0.2, 1) 0.32s both;
+  }
+  [data-state='unlocking'] .launch svg {
+    animation: icon-fade 0.62s ease 0.32s both;
+  }
+
+  /* ---------- the reels app ---------- */
+  .app {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    opacity: 0;
+    background: #000;
+    color: #fff;
+    transition: opacity 0.3s ease;
+  }
+  [data-state='open'] .app {
+    opacity: 1;
+  }
+  [data-state='open'] .launch {
+    opacity: 0;
+    transform: none;
+    transition: opacity 0.35s ease;
+  }
+
+  .feed {
+    height: 100%;
+    transform: translateY(calc(var(--i, 0) * -100%));
+    transition: transform 0.55s var(--ease);
+  }
+
+  .reel {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .media {
+    position: absolute;
+    inset: 0;
+  }
+  .media :global(video) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  .media :global(iframe) {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+  }
+
+  /* A reel that is still to come: soft colour moving slowly. */
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 55%, #000), #0c0a12 75%);
+    overflow: hidden;
+  }
+  .blob {
+    position: absolute;
+    width: 90%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 80%, #fff 0%), transparent 65%);
+    opacity: 0.55;
+    filter: blur(10px);
+    animation: blob-move 9s ease-in-out infinite alternate;
+  }
+  .b1 {
+    top: -15%;
+    left: -25%;
+  }
+  .b2 {
+    bottom: -20%;
+    right: -30%;
+    animation-duration: 12s;
+    animation-direction: alternate-reverse;
+  }
+  .ph-text {
+    position: relative;
+    display: grid;
+    gap: 2cqw;
+    justify-items: center;
+    text-align: center;
+    padding: 0 10%;
+  }
+  .ph-tag {
+    font-family: var(--mono);
+    font-size: 3.4cqw;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+  .ph-title {
+    font-family: var(--head);
+    font-size: 8cqw;
+    line-height: 1.1;
+  }
+
+  .caption {
+    position: absolute;
+    left: 0;
+    right: 18%;
+    bottom: 0;
+    padding: 0 5cqw 9cqw;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.45));
+    font-family: var(--sans);
+    pointer-events: none;
+  }
+  /* Instagram's own player brings its own captions and buttons. */
+  .embedded .caption,
+  .app.embed .app-top,
+  .app.embed .actions,
+  .app.embed .progress {
+    display: none;
+  }
+  .caption p {
+    margin: 0;
+    color: #fff;
+  }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 2.4cqw;
+    font-size: 4.2cqw;
+    font-weight: 600;
+  }
+  .avatar {
+    display: grid;
+    place-items: center;
+    width: 8.5cqw;
+    height: 8.5cqw;
+    border-radius: 50%;
+    font-size: 3cqw;
+    color: #3a2a63;
+    background: var(--lav);
+    box-shadow: 0 0 0 1.5px #fff;
+  }
+  .title {
+    margin-top: 2cqw !important;
+    font-size: 3.9cqw;
+  }
+  .audio {
+    margin-top: 1.4cqw !important;
+    font-size: 3.4cqw;
+    opacity: 0.85;
+  }
+
+  .app-top {
+    position: absolute;
+    top: 7.5%;
+    left: 5cqw;
+    right: 5cqw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--sans);
+    font-size: 5.6cqw;
+    font-weight: 700;
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  }
+  .app-top svg,
+  .actions svg {
+    width: 7cqw;
+    height: 7cqw;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+  }
+  .actions {
+    position: absolute;
+    right: 3.5cqw;
+    bottom: 12cqw;
+    display: grid;
+    gap: 6cqw;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+  }
+
+  .sound {
+    position: absolute;
+    top: 17%;
+    right: 4cqw;
+    display: grid;
+    place-items: center;
+    width: 9cqw;
+    height: 9cqw;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
+  .sound svg {
+    width: 5cqw;
+    height: 5cqw;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+  .sound .on,
+  .sound[aria-pressed='true'] .off {
+    display: none;
+  }
+  .sound[aria-pressed='true'] .on {
+    display: block;
+  }
+  .sound[hidden],
+  .open[hidden] {
+    display: none;
+  }
+
+  .open {
+    position: absolute;
+    top: 17%;
+    left: 4cqw;
+    padding: 1.4cqw 2.6cqw;
+    border-radius: 999px;
+    font-family: var(--sans);
+    font-size: 3.2cqw;
+    color: #fff;
+    text-decoration: none;
+    background: rgba(0, 0, 0, 0.38);
+  }
+
+  .progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 3.2cqw;
+    height: 0.8cqw;
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .progress i {
+    display: block;
+    height: 100%;
+    background: #fff;
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+  }
+  [data-state='open'] .progress.looping i {
+    animation: progress 9s linear infinite;
+  }
+
+  /* ---------- arrows beside the phone ---------- */
+  .arrow {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(var(--from, 0));
+    transition:
+      opacity 0.3s ease,
+      transform 0.4s var(--ease),
+      background-color 0.2s;
+    box-shadow: 0 6px 14px -8px rgba(30, 15, 0, 0.5);
+  }
+  .prev {
+    grid-area: prev;
+    justify-self: end;
+    --from: 10px;
+  }
+  .next {
+    grid-area: next;
+    justify-self: start;
+    --from: -10px;
+  }
+  .arrow svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .arrow:hover {
+    background: var(--bg);
+  }
+  .arrow:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+  }
+  /* shown while the phone is open: on hover with a mouse, always on touch */
+  .stage[data-state='open']:hover .arrow,
+  .stage.touch[data-state='open'] .arrow,
+  .stage[data-state='open']:focus-within .arrow {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .hint {
+    grid-area: hint;
+    margin: 18px 0 0;
+    text-align: center;
+  }
+
+  :global([data-theme='dark']) .phone {
+    --lav: #a99cc6;
+    --lav-hi: #d2c8e6;
+    --lav-lo: #7b6c9e;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+      inset 0 2px 1px rgba(255, 255, 255, 0.35),
+      inset 0 -2px 2px rgba(20, 10, 40, 0.45),
+      0 30px 40px -24px rgba(0, 0, 0, 0.8);
+  }
+
+  @keyframes app-open {
+    0% {
+      opacity: 1;
+      transform: scale(0.18);
+      border-radius: 24%;
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      border-radius: 12.6% / 5.9%;
+    }
+  }
+  @keyframes icon-fade {
+    0%,
+    55% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+  }
+  @keyframes wall-drift {
+    from {
+      background-position: 0% 100%;
+    }
+    to {
+      background-position: 100% 0%;
+    }
+  }
+  @keyframes blob-move {
+    to {
+      transform: translate(18%, 22%) scale(1.15);
+    }
+  }
+  @keyframes progress {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @media (max-width: 520px) {
+    .stage {
+      grid-template-columns: 40px auto 40px;
+      gap: 12px 6px;
+    }
+    .arrow {
+      width: 38px;
+      height: 38px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage *,
+    .stage *::before {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>

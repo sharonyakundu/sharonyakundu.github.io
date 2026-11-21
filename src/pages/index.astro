@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Window from '../components/Window.astro';
+import NoticeBoard from '../components/NoticeBoard.astro';
 import { roles } from '../data/experience';
 import { testimonial } from '../data/work';
 
@@ -44,13 +45,7 @@ const cards = roles.filter((role) => role.onHome);
 
   <section class="col section quote" aria-labelledby="said">
     <h2 id="said">From people I’ve worked with</h2>
-    <figure>
-      <blockquote>“{testimonial.quote}”</blockquote>
-      <figcaption>
-        <strong>{testimonial.name}</strong>
-        <span class="mono">{testimonial.role}</span>
-      </figcaption>
-    </figure>
+    <NoticeBoard quote={testimonial.quote} name={testimonial.name} role={testimonial.role} />
   </section>
 </Base>
 
@@ -114,23 +109,4 @@ const cards = roles.filter((role) => role.onHome);
     text-align: center;
   }
 
-  .quote figure {
-    margin: 36px 0 0;
-  }
-
-  .quote blockquote {
-    margin: 0 0 20px;
-    font-size: 1.125rem;
-    color: var(--ink);
-  }
-
-  .quote figcaption {
-    display: grid;
-    gap: 2px;
-  }
-
-  .quote strong {
-    color: var(--ink);
-    font-weight: 600;
-  }
 </style>

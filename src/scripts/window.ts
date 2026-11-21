@@ -38,9 +38,19 @@ function setup(root: HTMLElement) {
     const from = open;
     const start = performance.now();
     const duration = reduced ? 1 : 600 + 600 * Math.abs(target - from);
+    // Lifting glides; closing drops onto the sill with a little rebound.
+    const drops = target === 0 && from > 0.2 && !reduced;
+    const ease = (k: number) => {
+      if (!drops) return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      if (k < 0.8) {
+        const t = k / 0.8;
+        return t * t * (2 - t * 0.9) * (1 / 1.1);
+      }
+      return 1 - 0.04 * Math.sin((Math.PI * (k - 0.8)) / 0.2);
+    };
     const step = (now: number) => {
       const k = Math.min(1, (now - start) / duration);
-      const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      const eased = ease(k);
       apply(from + (target - from) * eased);
       if (k < 1) tween = requestAnimationFrame(step);
     };

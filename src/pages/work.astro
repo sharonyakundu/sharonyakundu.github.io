@@ -1,8 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
-import Vcr from '../components/Vcr.astro';
-import Tape from '../components/Tape.astro';
-import { tapes, certificates } from '../data/work';
+import Phone from '../components/Phone.astro';
+import { reels, certificates } from '../data/work';
 
 // Each frame hangs a little crooked, and at its own height.
 const tilts = [-1.4, 0.9, -0.5, 1.3, -1, 0.6, -0.8];
@@ -57,17 +56,11 @@ const drops = [0, 26, 8, 30, 4, 22, 12];
     </ul>
   </section>
 
-  <!-- The VCR and the tapes -->
-  <section class="media col" aria-labelledby="reels">
-    <h2 id="reels">Reels</h2>
-    <p class="hint">Pick a tape and it goes into the recorder.</p>
-    <div class="shelf-unit">
-      <Vcr />
-      <div class="shelf" aria-hidden="true"></div>
-    </div>
-    <ul class="tapes">
-      {tapes.map((tape, index) => <Tape tape={tape} index={index} />)}
-    </ul>
+  <!-- My work: reels on a phone -->
+  <section class="media col" aria-labelledby="my-work">
+    <h2 id="my-work">My Work</h2>
+    <p class="intro">Reels I’ve posted on Instagram.</p>
+    <Phone reels={reels} />
   </section>
 
   <dialog class="viewer" aria-label="Certificate">
@@ -76,14 +69,6 @@ const drops = [0, 26, 8, 30, 4, 22, 12];
     <p class="mono" data-viewer-caption></p>
   </dialog>
 
-  <dialog class="player" aria-label="Reel player">
-    <div class="player-head">
-      <p class="label" data-player-title></p>
-      <form method="dialog"><button class="label close">Eject ⏏</button></form>
-    </div>
-    <div class="screen" data-screen></div>
-    <a class="label out" data-player-link href="#" rel="noopener">Open on Instagram</a>
-  </dialog>
 </Base>
 
 <script>
@@ -116,95 +101,8 @@ const drops = [0, 26, 8, 30, 4, 22, 12];
     });
   });
 
-  // ---- Tapes: fly into the VCR slot, then play the reel.
-  const vcr = document.querySelector<HTMLElement>('[data-vcr]');
-  const slot = document.querySelector<SVGRectElement>('[data-slot]');
-  const display = document.querySelector<SVGTextElement>('[data-display]');
-  const player = document.querySelector<HTMLDialogElement>('.player');
-  const screen = document.querySelector<HTMLElement>('[data-screen]');
-  const playerTitle = document.querySelector<HTMLElement>('[data-player-title]');
-  const playerLink = document.querySelector<HTMLAnchorElement>('[data-player-link]');
-  let current: HTMLAnchorElement | null = null;
-
-  const setVcr = (state: 'idle' | 'loading' | 'playing', text: string) => {
-    if (vcr) vcr.dataset.state = state;
-    if (display) display.textContent = text;
-  };
-
-  const play = (tape: HTMLAnchorElement) => {
-    if (!player || !screen) return;
-    const reel = tape.dataset.reel ?? '';
-    const frame = document.createElement('iframe');
-    frame.src = `https://www.instagram.com/reel/${encodeURIComponent(reel)}/embed/`;
-    frame.title = tape.dataset.title ?? 'Instagram reel';
-    frame.allow = 'autoplay; encrypted-media; picture-in-picture';
-    screen.replaceChildren(frame);
-    if (playerTitle) playerTitle.textContent = tape.dataset.title ?? '';
-    if (playerLink) playerLink.href = tape.href;
-    setVcr('playing', 'PLAY');
-    player.showModal();
-  };
-
-  const insert = async (tape: HTMLAnchorElement) => {
-    const art = tape.querySelector('svg');
-    if (!slot || !art || reduced) return play(tape);
-
-    const from = art.getBoundingClientRect();
-    const to = slot.getBoundingClientRect();
-    const ghost = art.cloneNode(true) as SVGSVGElement;
-    Object.assign(ghost.style, {
-      position: 'fixed',
-      left: `${from.left}px`,
-      top: `${from.top}px`,
-      width: `${from.width}px`,
-      height: `${from.height}px`,
-      zIndex: '50',
-      pointerEvents: 'none',
-    });
-    document.body.append(ghost);
-    tape.style.visibility = 'hidden';
-    setVcr('loading', 'LOAD');
-
-    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-    const s = (to.width * 0.94) / from.width;
-    const flight = ghost.animate(
-      [
-        { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
-        { transform: `translate(${dx}px, ${dy - 40}px) scale(${s}) rotate(-4deg)`, offset: 0.55 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(0deg)`, offset: 0.75 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${s * 0.97}, 0.04)`, opacity: 0.4 },
-      ],
-      { duration: 1000, easing: 'cubic-bezier(.22,1,.36,1)' },
-    );
-    await flight.finished.catch(() => {});
-    ghost.remove();
-    window.setTimeout(() => play(tape), 350);
-  };
-
-  document.querySelectorAll<HTMLAnchorElement>('a.tape[data-reel]').forEach((tape) => {
-    tape.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (current) return;
-      current = tape;
-      void insert(tape);
-    });
-  });
-
-  // Eject: the player stops and the tape comes back to its place.
-  player?.addEventListener('close', () => {
-    screen?.replaceChildren();
-    setVcr('idle', '12:00');
-    if (current) {
-      current.style.visibility = '';
-      if (!reduced) current.animate([{ transform: 'translateY(-30px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 450, easing: 'cubic-bezier(.22,1,.36,1)' });
-      current.focus({ preventScroll: true });
-    }
-    current = null;
-  });
-
   // Clicking the dark area around a dialog closes it.
-  [viewer, player].forEach((dialog) =>
+  [viewer].forEach((dialog) =>
     dialog?.addEventListener('click', (e) => {
       if (e.target === dialog) dialog.close();
     }),
@@ -385,49 +283,15 @@ const drops = [0, 26, 8, 30, 4, 22, 12];
     filter: brightness(0.82);
   }
 
-  /* ---------- the VCR ---------- */
+  /* ---------- my work ---------- */
   .media {
     padding-block: clamp(56px, 10vw, 112px);
     text-align: center;
   }
 
-  .hint {
-    margin: 8px 0 32px;
+  .intro {
+    margin: 8px 0 36px;
     color: var(--mute);
-  }
-
-  .shelf-unit {
-    display: grid;
-    justify-items: center;
-  }
-
-  .shelf {
-    width: min(540px, 100%);
-    height: 16px;
-    margin-top: -2px;
-    border-radius: 2px;
-    background-color: #a8703f;
-    background-image:
-      linear-gradient(rgba(255, 240, 220, 0.25), rgba(40, 20, 5, 0.3)),
-      url('/window/wood-h.svg');
-    background-size:
-      auto,
-      640px 160px;
-    box-shadow: 0 14px 18px -12px rgba(30, 15, 0, 0.6);
-  }
-
-  :global([data-theme='dark']) .shelf {
-    filter: brightness(0.62);
-  }
-
-  .tapes {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 28px 32px;
-    list-style: none;
-    margin: 44px 0 0;
-    padding: 0;
   }
 
   /* ---------- dialogs ---------- */
@@ -466,38 +330,6 @@ const drops = [0, 26, 8, 30, 4, 22, 12];
     border: 0;
     padding: 6px 4px 10px;
     cursor: pointer;
-  }
-
-  .player {
-    width: min(420px, 100% - 24px);
-  }
-
-  .player-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .player-head p {
-    margin: 0;
-    padding-bottom: 4px;
-  }
-
-  .screen :global(iframe) {
-    display: block;
-    width: 100%;
-    height: min(72vh, 680px);
-    border: 0;
-    border-radius: 6px;
-    background: var(--bg);
-  }
-
-  .out {
-    display: inline-block;
-    margin-top: 10px;
-    font-size: 0.65rem;
-    text-decoration: none;
   }
 
   @keyframes frame-swing {
