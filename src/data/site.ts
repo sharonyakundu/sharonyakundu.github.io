@@ -19,7 +19,8 @@ export const site = {
 };
 
 export const nav = [
-  { href: '/about/', label: 'About' },
+  { href: '/my-story/', label: 'My Story' },
+  { href: '/about/', label: 'About Me' },
   { href: '/work/', label: 'Work' },
   { href: '/cv/', label: 'CV' },
   { href: '/contact/', label: 'Contact' },

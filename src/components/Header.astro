@@ -157,7 +157,8 @@ const here = Astro.url.pathname;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 4px 24px;
+    /* narrower gaps on small phones, so all five links fit on one line */
+    gap: 4px clamp(8px, (100vw - 318px) / 4, 24px);
     list-style: none;
     margin: 14px 0 0;
     padding: 0;
