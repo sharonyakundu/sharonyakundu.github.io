@@ -68,15 +68,12 @@ import Scene from './Scene.astro';
     --depth: 2.2cqw; /* how deep the wall opening looks */
     container-type: inline-size;
     position: relative;
-    width: min(820px, 100%);
+    /* Same size as the window on the reference site: 620px wide from one
+       end of the sill to the other (on phones, 88% of the screen width),
+       and always 1.36 times as wide as it is tall. The sill sticks out
+       2.4% on each side, hence the 1.048. */
+    width: calc(min(620px, 88vw) / 1.048);
     margin: 0 auto;
-  }
-
-  /* leave the top corners free for the name and the menu */
-  @media (min-width: 1280px) {
-    .window {
-      width: min(820px, 100%, 100vw - 2 * var(--corner));
-    }
   }
 
   :global([data-theme='dark']) .window {
@@ -271,7 +268,7 @@ import Scene from './Scene.astro';
 
   .opening {
     position: relative;
-    aspect-ratio: 7 / 5;
+    aspect-ratio: 3 / 2; /* makes the whole window 1.36 times as wide as tall, like the reference */
     overflow: hidden;
     background: #e9cfa9;
     box-shadow: 0 0 0 0.12cqw rgba(20, 10, 0, 0.5);
