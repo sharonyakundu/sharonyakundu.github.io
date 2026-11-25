@@ -68,8 +68,15 @@ import Scene from './Scene.astro';
     --depth: 2.2cqw; /* how deep the wall opening looks */
     container-type: inline-size;
     position: relative;
-    width: min(640px, 100%);
+    width: min(820px, 100%);
     margin: 0 auto;
+  }
+
+  /* leave the top corners free for the name and the menu */
+  @media (min-width: 1280px) {
+    .window {
+      width: min(820px, 100%, 100vw - 2 * var(--corner));
+    }
   }
 
   :global([data-theme='dark']) .window {

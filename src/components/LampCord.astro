@@ -280,6 +280,21 @@
     pointer-events: none;
   }
 
+  /* Wide screens: just left of the menu, as on the reference site, with the
+     label under the knob. */
+  @media (min-width: 1280px) {
+    .cord-wrap {
+      left: min(50% + 415px + clamp(16px, 50vw - 665px, 72px), 100% - 40px);
+    }
+    .hint {
+      top: calc(var(--len) + 42px);
+      left: 50%;
+      width: 6.4em;
+      text-align: center;
+      transform: translate(calc(-50% + var(--hx)), var(--hy));
+    }
+  }
+
   @media (max-width: 600px) {
     .cord-wrap {
       --len: 62px;

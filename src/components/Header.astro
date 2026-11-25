@@ -5,18 +5,20 @@ const here = Astro.url.pathname;
 ---
 
 <header class="site-head">
-  <a class="label name" href="/">{site.name}</a>
-  <p class="label place">
-    {site.location}
-    <svg class="flag" viewBox="0 0 8 5" role="img" aria-label="Poland">
-      <path fill="#fff" d="M0 0h8v2.5H0z"></path>
-      <path fill="#dc143c" d="M0 2.5h8V5H0z"></path>
-    </svg>
-  </p>
-  <p class="label clock"><time data-clock data-zone={site.timeZone}>&nbsp;</time></p>
-  <p class="label weather" data-weather>&nbsp;</p>
+  <div class="id">
+    <a class="label name" href="/">{site.name}</a>
+    <p class="label place">
+      {site.location}
+      <svg class="flag" viewBox="0 0 8 5" role="img" aria-label="Poland">
+        <path fill="#fff" d="M0 0h8v2.5H0z"></path>
+        <path fill="#dc143c" d="M0 2.5h8V5H0z"></path>
+      </svg>
+    </p>
+    <p class="label clock"><time data-clock data-zone={site.timeZone}>&nbsp;</time></p>
+    <p class="label weather" data-weather>&nbsp;</p>
+  </div>
 
-  <nav aria-label="Main">
+  <nav class="links" aria-label="Main">
     <ul>
       {
         nav.map((item) => (
@@ -108,13 +110,19 @@ const here = Astro.url.pathname;
 </script>
 
 <style>
+  /* Phones and small screens: everything centred, one line under another. */
   .site-head {
     position: relative;
     display: grid;
     justify-items: center;
-    gap: 2px;
     padding: 28px 16px 8px;
     text-align: center;
+  }
+
+  .id {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
   }
 
   .site-head p {
@@ -165,5 +173,54 @@ const here = Astro.url.pathname;
   nav a[aria-current='page'] {
     color: var(--ink);
     text-decoration: underline;
+  }
+
+  /* Wide screens: as on the reference site, the name, place, time and
+     weather sit in the top-left corner and the menu runs down the top-right. */
+  @media (min-width: 1280px) {
+    .site-head {
+      display: block;
+      height: 56px;
+      padding: 0;
+      text-align: left;
+    }
+
+    .id {
+      position: absolute;
+      z-index: 9;
+      top: 99px;
+      left: clamp(24px, 50% - 569px, 99px);
+      justify-items: start;
+      gap: 0;
+    }
+
+    .links {
+      position: absolute;
+      z-index: 9;
+      top: 99px;
+      right: clamp(24px, 50% - 583px, 85px);
+    }
+
+    nav ul {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0;
+      margin: 0;
+    }
+
+    nav a {
+      padding-block: 0;
+    }
+
+    .id .label,
+    .links .label {
+      font-size: 13px;
+      line-height: 24px;
+    }
+
+    .clock,
+    .weather {
+      min-height: 24px;
+    }
   }
 </style>

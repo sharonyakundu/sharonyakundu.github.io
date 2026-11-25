@@ -14,8 +14,8 @@
   --sans: 'Geist Variable', system-ui, sans-serif;
   --mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  --col: 620px;
-  --wide: 1040px;
+  --col: 760px;
+  --wide: 1200px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -131,6 +131,18 @@ img {
   margin-inline: auto;
 }
 
+/* On wide screens the name sits in the top-left corner and the menu in the
+   top-right, as on the reference site. --corner is how much room each corner
+   needs, so the column and the window never run into them. */
+@media (min-width: 1280px) {
+  :root {
+    --corner: calc(clamp(24px, 50vw - 569px, 99px) + 214px);
+  }
+  .col {
+    width: min(var(--col), 100% - 32px, 100vw - 2 * var(--corner));
+  }
+}
+
 .wide {
   width: min(var(--wide), 100% - 32px);
   margin-inline: auto;
@@ -143,11 +155,6 @@ img {
 .page-head {
   padding-block: clamp(40px, 8vw, 88px) clamp(24px, 4vw, 40px);
   text-align: center;
-}
-
-.page-head .label {
-  display: block;
-  margin-bottom: 16px;
 }
 
 .page-head h1 {
